@@ -1,6 +1,6 @@
 # 油条 · 基于 GitHub 的 Twikoo 头像管理系统
 
-> 🥖 **名字来源**：作者早上吃的油条。功能和油条没有关系，但确实很香。
+> by xjhjtzac & deepseek-v4.1-flash
 
 一个 **WeAvatar / Gravatar 类的自建头像服务**：把「邮箱 → SHA-256 → 你的 GitHub 仓库 → jsDelivr CDN」这条链路做成开箱即用的零后端 Web 工具，让 **Twikoo** 评论区的头像完全由你自己掌控。
 
