@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>油条 · 基于 GitHub 的 Twikoo 头像管理系统</title>
+<meta name="description" content="基于 GitHub 的 Twikoo 头像管理系统">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥖</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🥖</span>
+    <span>
+      <strong>油条</strong>
+      <small>基于 GitHub 的 Twikoo 头像管理系统</small>
+    </span>
+  </div>
+  <div class="topbar-right">
+    <span id="rateChip" class="chip" hidden></span>
+    <button id="connChip" class="chip chip-btn" type="button">未连接</button>
+    <button id="themeToggle" class="icon-btn" type="button" title="切换主题">🌓</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="upload">上传</button>
+  <button class="tab" data-tab="gallery">图库管理</button>
+  <button class="tab" data-tab="cdn">CDN 与 Twikoo</button>
+  <button class="tab" data-tab="settings">设置</button>
+  <button class="tab" data-tab="help">使用说明</button>
+</nav>
+
+<main>
+
+<!-- ============================ 上传 ============================ -->
+<section class="panel active" id="tab-upload">
+  <div class="grid-2">
+    <div class="card">
+      <h2><span class="step">1</span> 填写评论者邮箱</h2>
+      <p class="muted">邮箱会被规范化（去空格 + 转小写）后计算 SHA-256，得到的 64 位十六进制串就是文件名。这与 Twikoo 的计算方式逐字一致。</p>
+      <input id="emailInput" type="email" placeholder="user@example.com" autocomplete="off" spellcheck="false">
+      <label class="check">
+        <input type="checkbox" id="batchByFilename">
+        <span>批量模式：把每个图片的<strong>文件名当作邮箱</strong>（如 <code>a@b.com.png</code> → <code>a@b.com</code>），适合迁移已有头像</span>
+      </label>
+      <div id="emailPreview" class="preview-box muted">填入邮箱后这里会实时显示哈希、仓库路径与最终 URL</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span> 选择图片</h2>
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="dz-icon">⬆️</div>
+        <div><strong>拖拽图片到这里</strong></div>
+        <div class="muted">也可以点击选择文件，或在页面任意位置按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴剪贴板图片</div>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      </div>
+      <p class="muted small">图片会被原样提交（默认不压缩、不转格式），并按需求<strong>去掉扩展名</strong>保存为纯哈希文件名。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">3</span> 待上传队列 <span id="queueCount" class="count">0</span></h2>
+    <div id="queue" class="queue"><p class="muted">队列为空。</p></div>
+    <div class="row wrap">
+      <button id="uploadBtn" class="primary" disabled>开始上传</button>
+      <button id="clearQueue" disabled>清空队列</button>
+      <label class="check inline"><input type="checkbox" id="overwriteChk" checked><span>覆盖同名文件</span></label>
+      <label class="check inline"><input type="checkbox" id="compressChk"><span>上传前压缩 / 转 WebP</span></label>
+    </div>
+    <div id="uploadLog" class="log" hidden></div>
+  </div>
+</section>
+
+<!-- ============================ 图库 ============================ -->
+<section class="panel" id="tab-gallery">
+  <div class="card">
+    <div class="toolbar">
+      <button id="refreshGallery" class="primary" type="button">刷新列表</button>
+      <input id="gallerySearch" type="search" placeholder="搜索：哈希 / 路径 / 邮箱备注" autocomplete="off">
+      <select id="gallerySort" title="排序">
+        <option value="name">按名称</option>
+        <option value="name-desc">按名称倒序</option>
+        <option value="size-desc">按大小从大到小</option>
+        <option value="size-asc">按大小从小到大</option>
+      </select>
+      <select id="galleryPageSize" title="每页数量">
+        <option value="24">每页 24</option>
+        <option value="60" selected>每页 60</option>
+        <option value="120">每页 120</option>
+        <option value="500">每页 500</option>
+      </select>
+      <span id="galleryStats" class="muted small"></span>
+    </div>
+    <div class="toolbar" id="galleryActions" hidden>
+      <button id="selectPage" type="button">全选本页</button>
+      <button id="clearSelection" type="button">取消选择</button>
+      <span id="selCount" class="muted small">已选 0 项</span>
+      <span class="spacer"></span>
+      <button id="copySelectedLinks" type="button">复制链接</button>
+      <button id="copySelectedMd" type="button">复制 Markdown</button>
+      <button id="exportSelected" type="button">导出 JSON</button>
+      <button id="purgeSelected" type="button">刷新 CDN 缓存</button>
+      <button id="deleteSelected" class="danger" type="button">删除所选</button>
+    </div>
+    <div id="gallery" class="gallery"></div>
+    <div id="pager" class="pager"></div>
+  </div>
+</section>
+
+<!-- ========================= CDN 与 Twikoo ========================= -->
+<section class="panel" id="tab-cdn">
+  <div class="grid-2">
+    <div class="card">
+      <h2>CDN 基址生成器</h2>
+      <label class="field">
+        <span>CDN 线路</span>
+        <select id="cdnPreset"></select>
+      </label>
+      <label class="field" id="customTemplateField" hidden>
+        <span>自定义模板</span>
+        <input id="customTemplate" type="text" placeholder="https://img.example.com/{owner}/{repo}@{branch}/{path}">
+        <small class="muted">占位符：<code>{owner}</code> <code>{repo}</code> <code>{branch}</code> <code>{prefix}</code> <code>{path}</code> <code>{hash}</code></small>
+      </label>
+      <div class="kv"><span>图片直链基址</span><code id="cdnBase">—</code></div>
+      <div class="kv highlight">
+        <span>Twikoo 的 <code>GRAVATAR_CDN</code></span>
+        <code id="twikooValue">—</code>
+        <button class="mini" data-copy-target="twikooValue" type="button">复制</button>
+      </div>
+      <p class="muted small">把上面这个值（<strong>不带</strong> <code>https://</code>，<strong>不带</strong> <code>/avatar</code>）填进 Twikoo 的头像 CDN 设置即可。Twikoo 会自动追加 <code>/avatar/</code> 与邮箱哈希。</p>
+      <p class="muted small" id="presetNote"></p>
+      <p class="warn small" id="cdnPurgeNote" hidden></p>
+    </div>
+
+    <div class="card">
+      <h2>邮箱 → 头像链接 批量生成</h2>
+      <p class="muted">每行一个邮箱，也支持逗号 / 分号分隔。用于给已有评论者批量生成链接，或核对某个邮箱是否已经上传过头像。</p>
+      <textarea id="bulkEmails" rows="6" placeholder="alice@example.com&#10;bob@example.com&#10;12345@qq.com"></textarea>
+      <div class="row wrap">
+        <button id="genLinks" class="primary" type="button">生成</button>
+        <button id="copyAllLinks" type="button" disabled>复制全部链接</button>
+        <button id="downloadTxt" type="button" disabled>下载 TXT</button>
+        <button id="downloadCsv" type="button" disabled>下载 CSV</button>
+        <button id="downloadJson" type="button" disabled>下载 JSON</button>
+      </div>
+      <div id="linkResult" class="link-result"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Twikoo 配置速查</h2>
+    <div id="twikooSnippet" class="snippet"></div>
+  </div>
+</section>
+
+<!-- ============================ 设置 ============================ -->
+<section class="panel" id="tab-settings">
+  <div class="grid-2">
+    <div class="card">
+      <h2>GitHub 连接</h2>
+      <label class="field">
+        <span>Personal Access Token</span>
+        <span class="input-row">
+          <input id="tokenInput" type="password" placeholder="github_pat_… 或 ghp_…" autocomplete="off" spellcheck="false">
+          <button id="toggleToken" class="mini" type="button">显示</button>
+        </span>
+        <small class="muted">细粒度令牌请只授予目标仓库的 <code>Contents: Read and write</code>。令牌只保存在你的浏览器里，不会发给任何第三方。</small>
+      </label>
+      <label class="field">
+        <span>令牌保存方式</span>
+        <select id="tokenStorage">
+          <option value="local">保存在浏览器（localStorage，下次打开仍有效）</option>
+          <option value="session">仅本次会话（关闭标签页即失效，更安全）</option>
+        </select>
+      </label>
+      <div class="grid-3">
+        <label class="field"><span>仓库所有者</span><input id="ownerInput" placeholder="your-name" autocomplete="off"></label>
+        <label class="field"><span>仓库名</span><input id="repoInput" placeholder="your-avatar-bed" autocomplete="off"></label>
+        <label class="field"><span>分支</span><input id="branchInput" placeholder="main" list="branchList" autocomplete="off"><datalist id="branchList"></datalist></label>
+      </div>
+      <div class="row wrap">
+        <button id="saveSettings" class="primary" type="button">保存设置</button>
+        <button id="testConn" type="button">测试连接</button>
+        <button id="loadBranches" type="button">读取分支列表</button>
+        <button id="createRepo" type="button">创建仓库</button>
+      </div>
+      <div id="repoInfo" class="info-box" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>命名与存储</h2>
+      <label class="field">
+        <span>仓库内目录</span>
+        <input id="prefixInput" placeholder="avatar" autocomplete="off">
+        <small class="muted">必须是 <code>avatar</code> 才能兼容 Twikoo（Twikoo 会在 CDN 基址后硬编码追加 <code>/avatar/</code>）。<span id="prefixWarn" class="warn" hidden>⚠️ 当前不是 avatar，Twikoo 将取不到图片！</span></small>
+      </label>
+      <label class="field">
+        <span>哈希算法</span>
+        <select id="algorithmSelect">
+          <option value="sha256">SHA-256（Twikoo 自定义 CDN 使用，推荐）</option>
+          <option value="md5">MD5（仅 cravatar.cn 这类第三方 CDN 使用）</option>
+        </select>
+        <small class="muted" id="algoWarn" hidden>⚠️ MD5 与 Twikoo 的自定义 CDN 不兼容，只有 CDN 是 cravatar.cn 时才会生效。</small>
+      </label>
+      <label class="field">
+        <span>CDN 线路</span>
+        <select id="settingsPreset"></select>
+      </label>
+      <label class="check"><input type="checkbox" id="keepExtChk"><span>保留原始扩展名（<strong>会导致 Twikoo 取不到图片</strong>，仅在做普通图床时勾选）</span></label>
+      <label class="check"><input type="checkbox" id="autoPurgeChk"><span>覆盖 / 删除后自动刷新 CDN 缓存（<strong>只对 <code>cdn.jsdelivr.net</code> 与 <code>gcore.jsdelivr.net</code> 有效</strong>；<code>cdn.jsdmirror.com</code> 是跑在腾讯 EdgeOne 上的第三方镜像，jsDelivr 的 purge 管不到它，只能等它自己的缓存过期）</span></label>
+      <label class="field">
+        <span>默认 fallback 参数（Twikoo 的 <code>DEFAULT_GRAVATAR</code>）</span>
+        <select id="defaultGravatar">
+          <option value="mp">mp · 神秘人</option>
+          <option value="identicon">identicon · 几何图形</option>
+          <option value="monsterid">monsterid · 小怪兽</option>
+          <option value="wavatar">wavatar · 卡通脸</option>
+          <option value="retro">retro · 像素风</option>
+          <option value="robohash">robohash · 机器人</option>
+          <option value="blank">blank · 透明</option>
+        </select>
+        <small class="muted">该参数由 Twikoo 拼在链接末尾（<code>?d=mp</code>）。注意 jsDelivr 会忽略查询串，所以它<strong>不会</strong>在本图床上生效，仅用于链接一致性排查。</small>
+      </label>
+      <div class="grid-2">
+        <label class="field"><span>提交并发数</span><input id="concurrencyInput" type="number" min="1" max="10" value="3"></label>
+        <label class="field"><span>压缩最长边（px）</span><input id="maxEdgeInput" type="number" min="16" max="4096" value="512"></label>
+      </div>
+      <label class="field">
+        <span>提交信息模板</span>
+        <input id="commitTemplateInput" placeholder="avatar: add {hash}" autocomplete="off">
+        <small class="muted">占位符：<code>{action}</code> <code>{hash}</code> <code>{path}</code> <code>{email}</code></small>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>备注同步（邮箱 ↔ 哈希）</h2>
+    <p class="muted small">
+      备注就是「哪个邮箱对应哪个头像文件」。<strong>SHA-256 不可逆</strong>，备注一丢，就再也没法知道某个头像是谁的了
+      —— 所以不建议只放在浏览器里。
+    </p>
+    <label class="check"><input type="checkbox" id="notesEnabledChk"><span>把备注同步到 GitHub 仓库（换设备、清缓存都不会丢）</span></label>
+    <label class="field">
+      <span>备注文件路径</span>
+      <input id="notesPathInput" placeholder=".youtiao/notes.json" autocomplete="off" spellcheck="false">
+      <small class="muted">默认 <code>.youtiao/notes.json</code>，刻意避开 <code>avatar/</code> 目录，以免被图库当成头像。</small>
+    </label>
+    <label class="field">
+      <span>备注仓库（留空 = 与图床同仓库）</span>
+      <input id="notesRepoInput" placeholder="你的用户名/一个私有仓库" autocomplete="off" spellcheck="false">
+      <small class="muted">
+        ⚠️ 图床仓库<strong>必须是公开的</strong>（jsDelivr 只能读公开仓库），所以备注放在那里就意味着
+        <strong>所有评论者的邮箱公开可读</strong>。建议新建一个<strong>私有仓库</strong>专门存备注，
+        填成 <code>owner/repo</code> 或 <code>owner/repo@分支</code>。
+      </small>
+    </label>
+    <div class="row wrap">
+      <button id="notesCreateRepo" type="button">创建私有备注仓库</button>
+      <button id="notesSyncNow" type="button">立即同步</button>
+      <button id="notesPullNow" type="button">从仓库拉取</button>
+    </div>
+    <div id="notesStatus" class="notes-status"><span class="dot"></span><span>—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>配置备份 / 恢复</h2>
+    <p class="muted small">
+      导出的是一个包含令牌、设置与全部备注的 JSON，换设备时导入即可。
+      备注已经会自动同步到仓库（见上一张卡片），所以这个导出主要是用来备份令牌与兜底。
+    </p>
+    <div class="row wrap">
+      <button id="exportAll" type="button">导出配置 + 备注</button>
+      <button id="importAll" type="button">导入配置 + 备注</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+      <button id="clearHistory" type="button">清空全部备注</button>
+      <button id="resetSettings" class="danger" type="button">重置全部设置</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 帮助 ============================ -->
+<section class="panel" id="tab-help">
+  <div class="card">
+    <h2>它是怎么工作的</h2>
+    <ol class="steps">
+      <li>评论者在 Twikoo 里留下邮箱，Twikoo 对邮箱做 <code>trim().toLowerCase()</code> 后计算 <strong>SHA-256</strong>，得到 64 位十六进制串。</li>
+      <li>Twikoo 拼出头像地址：<code>https://&lt;你填的 CDN 基址&gt;/avatar/&lt;sha256&gt;?d=mp</code>。</li>
+      <li>这个地址被解析到你的 GitHub 仓库里的 <code>avatar/&lt;sha256&gt;</code> 文件——也就是你在本工具上传的那张图。</li>
+    </ol>
+    <p class="muted">所以：<strong>图片必须放在仓库的 <code>avatar/</code> 目录下且不带扩展名</strong>，CDN 基址里则不能带 <code>/avatar</code>。</p>
+  </div>
+
+  <div class="card">
+    <h2>四步跑起来</h2>
+    <ol class="steps">
+      <li><strong>建图床仓库</strong>：GitHub 上新建一个 <strong>Public</strong> 仓库（jsDelivr 无法读取私有仓库），勾选 Add a README 以便有初始提交。</li>
+      <li><strong>建令牌</strong>：<span class="mono">Settings → Developer settings → Personal access tokens → Fine-grained tokens</span>，只授权这一个仓库，权限选 <span class="mono">Contents: Read and write</span>。</li>
+      <li><strong>填设置页</strong>：粘贴令牌、填 owner / 仓库名 / 分支，点「测试连接」。</li>
+      <li><strong>上传头像</strong>：在上传页填邮箱 + 拖入图片，上传成功后到「CDN 与 Twikoo」页复制 <code>GRAVATAR_CDN</code>，填进 Twikoo 后台的「头像 CDN」。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>必须知道的几个坑</h2>
+    <ul class="bullets">
+      <li><strong>QQ 邮箱不走这里。</strong>Twikoo 对 <code>12345@qq.com</code> 或纯数字 QQ 号会直接调用 QQ 头像接口，连自定义 CDN 都不用。</li>
+      <li><strong>仓库必须公开。</strong>jsDelivr 只能读取公开仓库；私有仓库需要自带令牌的反代，本工具不支持。</li>
+      <li><strong>无扩展名与 Content-Type。</strong>jsDelivr 不嗅探内容、只按文件名判定 MIME，所以哈希命名的文件会返回 <code>application/octet-stream</code>（带 <code>nosniff</code>）。这个组合在 Chromium/Edge 上<b>实测能正常显示</b>——浏览器在 <code>&lt;img&gt;</code> 场景仍会解码图片；真正会被拦的是 <code>text/plain</code> + <code>nosniff</code>，而本方案不会落到那一组合。Firefox / Safari 未实测。严格校验 MIME 的场景（CSS 背景图、图片代理、社交平台抓头像）建议用下一条的加固方案。</li>
+      <li><strong>加固方案。</strong>仓库里附带了 <code>extras/cloudflare-worker.js</code>，用一个免费 Cloudflare Worker 反代 jsDelivr 并按文件魔数强制返回 <code>Content-Type: image/*</code>，然后把 CDN 基址换成自己的 Worker 域名即可。上线前也可以先确证自己仓库的真实响应头：<code>curl -sI "https://cdn.jsdmirror.com/gh/你/仓库@main/avatar/某个sha256"</code>。</li>
+      <li><strong>换了头像评论里还是旧的？</strong>分两种情况：<code>cdn.jsdelivr.net</code> / <code>gcore.jsdelivr.net</code> 是 jsDelivr 自家的节点，本工具会在覆盖/删除后自动调用它的 purge 接口立即刷新（也可以在「图库管理」里选中图片手动点「刷新 CDN 缓存」）。而 <code>cdn.jsdmirror.com</code> 是<strong>第三方镜像（腾讯 EdgeOne）</strong>，有自己的多级缓存，<strong>purge 对它无效</strong>——实测它没有公开的刷新接口，缓存最长约 24 小时（浏览器侧 5 分钟）。想让它立刻生效：在 Twikoo 里把 <code>DEFAULT_GRAVATAR</code> 从 <code>mp</code> 改成别的值即可让所有头像 URL 变化、绕过旧缓存，或者换用能 purge 的线路。</li>
+      <li><strong>Token 安全。</strong>令牌存在浏览器里，请使用最小权限的细粒度令牌，并避免在公共电脑上勾选「保存在浏览器」。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>关于邮箱备注</h2>
+    <p class="muted">SHA-256 不可逆，仅凭文件名无法知道是谁的头像。本工具会在你上传时把「邮箱 ↔ 哈希」记录下来，于是图库里能直接显示邮箱、能按邮箱搜索。</p>
+    <p class="muted">这份备注会<strong>自动同步到 GitHub 仓库里的一个文件</strong>（默认 <code>.youtiao/notes.json</code>），所以换设备、清浏览器缓存都不会丢。本地也留一份缓存，离线照样能显示。</p>
+    <p class="muted">要注意：<strong>图床仓库必须是公开的</strong>，所以备注写进同一个仓库 = 所有评论者的邮箱公开可读。因此第一次写入前会让你选一次，也可以把备注放进一个<strong>独立的私有仓库</strong>（设置页有「创建私有备注仓库」按钮）。</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <span class="muted small">油条 · 零后端 · 所有请求从你的浏览器直接发往 api.github.com 与 jsDelivr</span>
+</footer>
+
+<div id="toasts" class="toasts"></div>
+
+<dialog id="modal" class="modal">
+  <form method="dialog">
+    <h3 id="modalTitle">提示</h3>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button value="cancel" type="submit" id="modalCancel">取消</button>
+      <button value="confirm" type="submit" class="primary" id="modalConfirm">确定</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="lightbox" class="lightbox">
+  <form method="dialog"><button class="lightbox-close" type="submit" aria-label="关闭">✕</button></form>
+  <img id="lightboxImg" alt="预览">
+  <div id="lightboxCaption" class="lightbox-caption"></div>
+</dialog>
+
+<script type="module" src="assets/js/app.js"></script>
+
+<!-- 兜底提示：以 file:// 直接双击打开时，浏览器会以同源策略为由拒绝加载 ES 模块，
+     页面会表现成「所有按钮都没反应」。这里用一个普通脚本检测并给出明确的解决办法。 -->
+<script>
+  setTimeout(function () {
+    if (document.documentElement.dataset.youtiaoBooted === '1') return;
+    var tip = document.createElement('div');
+    tip.className = 'boot-error';
+    tip.innerHTML =
+      '<strong>页面脚本没有加载成功，所以按钮都不会有反应。</strong>' +
+      '<p>最常见的原因：你是<b>直接双击打开这个文件的</b>（地址栏以 <code>file://</code> 开头）。' +
+      '浏览器在 <code>file://</code> 下会拒绝加载 ES 模块，这是浏览器的同源策略，不是文件损坏。</p>' +
+      '<p>任选一种方式即可：</p>' +
+      '<ul>' +
+      '<li><b>起本地服务（推荐）</b>：在本目录执行 <code>npm start</code>（等价于 <code>node serve.mjs --open</code>），' +
+      '然后打开它提示的 <code>http://127.0.0.1:8123</code>。Windows 也可以直接双击 <code>start-server.cmd</code>。</li>' +
+      '<li><b>用单文件版</b>：打开同目录下的 <code>youtiao-standalone.html</code>，它把所有模块内联成了一个普通脚本，双击即可用。</li>' +
+      '<li>或者把它放到 GitHub Pages 上访问。</li>' +
+      '</ul>';
+    document.body.insertBefore(tip, document.body.firstChild);
+  }, 1500);
+</script>
+</body>
+</html>

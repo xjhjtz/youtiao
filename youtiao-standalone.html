@@ -1,0 +1,5294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 由 build/standalone.mjs 生成，请勿直接编辑；改源码后执行 npm run build -->
+<title>油条 · 基于 GitHub 的 Twikoo 头像管理系统</title>
+<meta name="description" content="基于 GitHub 的 Twikoo 头像管理系统">
+<style>
+/* ==========================================================================
+   油条 · 样式表
+   设计原则：零依赖、亮/暗双主题、手机可用、不依赖任何外部字体或图标库。
+   ========================================================================== */
+
+:root {
+  --bg: #f5f6f8;
+  --bg-elev: #ffffff;
+  --bg-sunken: #eef0f4;
+  --text: #1c1f24;
+  --text-dim: #6b7280;
+  --border: #e2e5ea;
+  --border-strong: #cbd2dc;
+  --accent: #2f6feb;
+  --accent-text: #ffffff;
+  --accent-soft: #e8f0fe;
+  --danger: #d64545;
+  --danger-soft: #fdecec;
+  --ok: #1a8a52;
+  --ok-soft: #e7f6ee;
+  --warn: #b26a00;
+  --warn-soft: #fff5e0;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
+  --shadow-lg: 0 10px 32px rgba(16, 24, 40, .18);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+html[data-theme="dark"] {
+  --bg: #14161a;
+  --bg-elev: #1c1f25;
+  --bg-sunken: #101216;
+  --text: #e6e8ec;
+  --text-dim: #9aa2af;
+  --border: #2b303a;
+  --border-strong: #3a4150;
+  --accent: #5b8def;
+  --accent-text: #0d1117;
+  --accent-soft: #1e2a41;
+  --danger: #ef6b6b;
+  --danger-soft: #35201f;
+  --ok: #4ec98a;
+  --ok-soft: #16301f;
+  --warn: #e0a94a;
+  --warn-soft: #33280f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, .55);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+        "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 48px;
+}
+
+code, kbd, .mono { font-family: var(--mono); font-size: .88em; }
+
+code {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  word-break: break-all;
+}
+
+kbd {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+a { color: var(--accent); }
+
+/* ------------------------------- 顶栏 ------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.brand .logo { font-size: 22px; }
+.brand strong { display: block; line-height: 1.25; }
+.brand small { display: block; color: var(--text-dim); font-size: 12px; line-height: 1.25; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.chip-ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.chip-err { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.chip-warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.chip-btn { cursor: pointer; font-family: inherit; }
+.chip-btn:hover { border-color: var(--border-strong); }
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--text);
+}
+.icon-btn:hover { background: var(--bg-sunken); }
+
+/* ------------------------------- 标签页 ------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 20px 0;
+  max-width: 1240px;
+  margin: 0 auto;
+  overflow-x: auto;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 8px 16px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text); background: var(--bg-elev); }
+.tab.active {
+  background: var(--bg-elev);
+  color: var(--text);
+  font-weight: 600;
+  border-color: var(--border);
+  box-shadow: 0 -1px 0 var(--bg-elev) inset;
+}
+
+main { max-width: 1240px; margin: 0 auto; padding: 16px 20px 0; }
+
+.panel { display: none; }
+.panel.active { display: block; animation: fade .18s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------- 卡片 ------------------------------- */
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step {
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-dim);
+  background: var(--bg-sunken);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+.row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.row.wrap { flex-wrap: wrap; }
+.spacer { flex: 1; }
+.muted { color: var(--text-dim); }
+.small { font-size: 12.5px; }
+.warn { color: var(--warn); }
+.ok { color: var(--ok); }
+.err { color: var(--danger); }
+
+/* ------------------------------- 表单 ------------------------------- */
+
+.field { display: block; margin-bottom: 14px; }
+.field > span:first-child,
+.field > span.label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+.field small { display: block; margin-top: 5px; line-height: 1.5; }
+
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="search"], select, textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  outline: none;
+}
+textarea { font-family: var(--mono); font-size: 13px; resize: vertical; line-height: 1.5; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input:disabled, select:disabled { opacity: .55; }
+
+.input-row { display: flex; gap: 8px; align-items: stretch; }
+.input-row > input { flex: 1; }
+
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text-dim); margin: 8px 0; cursor: pointer; }
+.check input { margin-top: 3px; flex: none; }
+.check.inline { display: inline-flex; align-items: center; margin: 0; }
+.check.inline input { margin-top: 0; }
+
+button {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, opacity .12s;
+}
+button:hover:not(:disabled) { background: var(--bg-sunken); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button.danger { background: var(--danger-soft); border-color: transparent; color: var(--danger); font-weight: 600; }
+button.danger:hover:not(:disabled) { filter: brightness(.96); }
+button.mini { padding: 4px 9px; font-size: 12px; }
+button.ghost { border-color: transparent; background: transparent; }
+
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar input[type="search"] { flex: 1; min-width: 180px; }
+.toolbar select { width: auto; }
+
+/* ------------------------------ 上传页 ------------------------------ */
+
+.preview-box {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-sunken);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.7;
+  word-break: break-all;
+}
+.preview-box .label { color: var(--text-dim); }
+.preview-box .val { font-family: var(--mono); font-size: 12.5px; }
+.preview-box .avatar-preview { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+.preview-box img { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--bg); border: 1px solid var(--border); }
+
+.dropzone {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 32px 18px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone:focus, .dropzone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  outline: none;
+}
+.dropzone .dz-icon { font-size: 30px; line-height: 1; }
+
+.queue { display: grid; gap: 10px; }
+.queue-item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.queue-item img { width: 56px; height: 56px; border-radius: var(--radius-sm); object-fit: cover; background: var(--bg-sunken); }
+.queue-item .meta { min-width: 0; }
+.queue-item .title { font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-item .path { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-item .status { font-size: 12px; white-space: nowrap; }
+.status-pending { color: var(--text-dim); }
+.status-uploading { color: var(--accent); }
+.status-done { color: var(--ok); }
+.status-skip { color: var(--warn); }
+.status-error { color: var(--danger); }
+
+.log {
+  margin-top: 14px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ------------------------------ 图库 ------------------------------ */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  overflow: hidden;
+  transition: border-color .12s, box-shadow .12s;
+}
+.tile:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.tile.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+.tile .thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: var(--bg-sunken);
+  cursor: zoom-in;
+  border-bottom: 1px solid var(--border);
+}
+.tile .thumb-broken {
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px;
+}
+
+.tile .tile-body { padding: 8px 9px 10px; }
+.tile .tile-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.tile .tile-email { font-size: 11.5px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .tile-sub { font-size: 11px; color: var(--text-dim); display: flex; justify-content: space-between; gap: 6px; margin-top: 2px; }
+.tile .tile-actions { display: flex; gap: 4px; margin-top: 7px; flex-wrap: wrap; }
+.tile .tile-actions button { padding: 3px 7px; font-size: 11px; border-radius: 6px; }
+
+.tile .pick {
+  position: absolute;
+  top: 7px; left: 7px;
+  width: 20px; height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  z-index: 2;
+}
+.tile .badge {
+  position: absolute;
+  top: 7px; right: 7px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 85%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  z-index: 2;
+}
+
+.pager { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+.pager button { padding: 5px 10px; font-size: 13px; }
+.pager button.current { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+
+.empty {
+  padding: 46px 20px;
+  text-align: center;
+  color: var(--text-dim);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+}
+
+/* --------------------------- CDN / 链接结果 --------------------------- */
+
+.kv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  margin-bottom: 10px;
+}
+.kv > span:first-child { font-size: 12.5px; font-weight: 600; color: var(--text-dim); flex: none; }
+.kv code { flex: 1; min-width: 200px; background: transparent; border: none; padding: 0; }
+.kv.highlight { border-color: var(--accent); background: var(--accent-soft); }
+
+.snippet {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+.link-result { display: grid; gap: 8px; max-height: 420px; overflow: auto; }
+.link-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.link-row img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--bg-sunken); border: 1px solid var(--border); }
+.link-row .l-email { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-row .l-url { font-family: var(--mono); font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-row .l-tag { font-size: 10.5px; color: var(--warn); }
+.link-row.missing { opacity: .78; }
+
+.info-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--ok-soft);
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.info-box.error { background: var(--danger-soft); color: var(--danger); }
+
+.steps, .bullets { margin: 0; padding-left: 22px; }
+.steps li, .bullets li { margin-bottom: 8px; }
+
+/* ------------------------------- 弹层 ------------------------------- */
+
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  display: grid;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.toast {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  box-shadow: var(--shadow-lg);
+  font-size: 13.5px;
+  animation: slide-in .18s ease-out;
+  word-break: break-word;
+}
+.toast.ok { border-left-color: var(--ok); }
+.toast.err { border-left-color: var(--danger); }
+.toast.warn { border-left-color: var(--warn); }
+@keyframes slide-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+.modal, .lightbox {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--text);
+  padding: 0;
+  box-shadow: var(--shadow-lg);
+  max-width: min(560px, calc(100vw - 32px));
+}
+.modal::backdrop, .lightbox::backdrop { background: rgba(8, 10, 14, .55); }
+.modal form { padding: 18px; margin: 0; }
+.modal h3 { margin: 0 0 10px; font-size: 16px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+/* 单选对话框（choiceDialog）里的选项按钮 */
+.choice-list { display: grid; gap: 8px; margin-top: 14px; }
+.choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+.choice strong { display: block; font-size: 14px; }
+.choice small { display: block; color: var(--text-dim); font-size: 12.5px; margin-top: 2px; }
+.choice:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.choice.primary { border-color: var(--accent); }
+.choice.danger { border-color: transparent; color: var(--danger); }
+
+/* 备注同步状态 */
+.notes-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--text-dim); }
+.notes-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex: none; }
+.notes-status.ok .dot { background: var(--ok); }
+.notes-status.err .dot { background: var(--danger); }
+.notes-status.busy .dot { background: var(--accent); }
+
+.lightbox { max-width: min(760px, calc(100vw - 24px)); background: transparent; border: none; box-shadow: none; }
+.lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: 74vh;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+}
+.lightbox-close {
+  position: absolute; top: -6px; right: -6px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+}
+.lightbox-caption {
+  margin-top: 10px;
+  text-align: center;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+}
+
+.footer { max-width: 1240px; margin: 24px auto 0; padding: 0 20px; text-align: center; }
+
+/* 脚本没能加载时的兜底提示（典型场景：以 file:// 双击打开，ES 模块被浏览器拦截） */
+.boot-error {
+  max-width: 1240px;
+  margin: 16px auto 0;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.boot-error strong { color: var(--danger); }
+.boot-error p { margin: 8px 0; }
+.boot-error ul { margin: 8px 0; padding-left: 22px; }
+.boot-error li { margin-bottom: 6px; }
+
+/* ------------------------------ 响应式 ------------------------------ */
+
+@media (max-width: 720px) {
+  .topbar { padding: 8px 12px; }
+  .brand small { display: none; }
+  main { padding: 12px 12px 0; }
+  .tabs { padding: 10px 12px 0; }
+  .card { padding: 14px; }
+  .gallery { grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); }
+  .queue-item { grid-template-columns: 44px 1fr; }
+  .queue-item img { width: 44px; height: 44px; }
+  .queue-item .status { grid-column: 2; }
+}
+
+@media print { .topbar, .tabs, .footer, .toasts { display: none; } }
+    </style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥖</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🥖</span>
+    <span>
+      <strong>油条</strong>
+      <small>基于 GitHub 的 Twikoo 头像管理系统</small>
+    </span>
+  </div>
+  <div class="topbar-right">
+    <span id="rateChip" class="chip" hidden></span>
+    <button id="connChip" class="chip chip-btn" type="button">未连接</button>
+    <button id="themeToggle" class="icon-btn" type="button" title="切换主题">🌓</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="upload">上传</button>
+  <button class="tab" data-tab="gallery">图库管理</button>
+  <button class="tab" data-tab="cdn">CDN 与 Twikoo</button>
+  <button class="tab" data-tab="settings">设置</button>
+  <button class="tab" data-tab="help">使用说明</button>
+</nav>
+
+<main>
+
+<!-- ============================ 上传 ============================ -->
+<section class="panel active" id="tab-upload">
+  <div class="grid-2">
+    <div class="card">
+      <h2><span class="step">1</span> 填写评论者邮箱</h2>
+      <p class="muted">邮箱会被规范化（去空格 + 转小写）后计算 SHA-256，得到的 64 位十六进制串就是文件名。这与 Twikoo 的计算方式逐字一致。</p>
+      <input id="emailInput" type="email" placeholder="user@example.com" autocomplete="off" spellcheck="false">
+      <label class="check">
+        <input type="checkbox" id="batchByFilename">
+        <span>批量模式：把每个图片的<strong>文件名当作邮箱</strong>（如 <code>a@b.com.png</code> → <code>a@b.com</code>），适合迁移已有头像</span>
+      </label>
+      <div id="emailPreview" class="preview-box muted">填入邮箱后这里会实时显示哈希、仓库路径与最终 URL</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span> 选择图片</h2>
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="dz-icon">⬆️</div>
+        <div><strong>拖拽图片到这里</strong></div>
+        <div class="muted">也可以点击选择文件，或在页面任意位置按 <kbd>Ctrl</kbd>+<kbd>V</kbd> 粘贴剪贴板图片</div>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      </div>
+      <p class="muted small">图片会被原样提交（默认不压缩、不转格式），并按需求<strong>去掉扩展名</strong>保存为纯哈希文件名。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">3</span> 待上传队列 <span id="queueCount" class="count">0</span></h2>
+    <div id="queue" class="queue"><p class="muted">队列为空。</p></div>
+    <div class="row wrap">
+      <button id="uploadBtn" class="primary" disabled>开始上传</button>
+      <button id="clearQueue" disabled>清空队列</button>
+      <label class="check inline"><input type="checkbox" id="overwriteChk" checked><span>覆盖同名文件</span></label>
+      <label class="check inline"><input type="checkbox" id="compressChk"><span>上传前压缩 / 转 WebP</span></label>
+    </div>
+    <div id="uploadLog" class="log" hidden></div>
+  </div>
+</section>
+
+<!-- ============================ 图库 ============================ -->
+<section class="panel" id="tab-gallery">
+  <div class="card">
+    <div class="toolbar">
+      <button id="refreshGallery" class="primary" type="button">刷新列表</button>
+      <input id="gallerySearch" type="search" placeholder="搜索：哈希 / 路径 / 邮箱备注" autocomplete="off">
+      <select id="gallerySort" title="排序">
+        <option value="name">按名称</option>
+        <option value="name-desc">按名称倒序</option>
+        <option value="size-desc">按大小从大到小</option>
+        <option value="size-asc">按大小从小到大</option>
+      </select>
+      <select id="galleryPageSize" title="每页数量">
+        <option value="24">每页 24</option>
+        <option value="60" selected>每页 60</option>
+        <option value="120">每页 120</option>
+        <option value="500">每页 500</option>
+      </select>
+      <span id="galleryStats" class="muted small"></span>
+    </div>
+    <div class="toolbar" id="galleryActions" hidden>
+      <button id="selectPage" type="button">全选本页</button>
+      <button id="clearSelection" type="button">取消选择</button>
+      <span id="selCount" class="muted small">已选 0 项</span>
+      <span class="spacer"></span>
+      <button id="copySelectedLinks" type="button">复制链接</button>
+      <button id="copySelectedMd" type="button">复制 Markdown</button>
+      <button id="exportSelected" type="button">导出 JSON</button>
+      <button id="purgeSelected" type="button">刷新 CDN 缓存</button>
+      <button id="deleteSelected" class="danger" type="button">删除所选</button>
+    </div>
+    <div id="gallery" class="gallery"></div>
+    <div id="pager" class="pager"></div>
+  </div>
+</section>
+
+<!-- ========================= CDN 与 Twikoo ========================= -->
+<section class="panel" id="tab-cdn">
+  <div class="grid-2">
+    <div class="card">
+      <h2>CDN 基址生成器</h2>
+      <label class="field">
+        <span>CDN 线路</span>
+        <select id="cdnPreset"></select>
+      </label>
+      <label class="field" id="customTemplateField" hidden>
+        <span>自定义模板</span>
+        <input id="customTemplate" type="text" placeholder="https://img.example.com/{owner}/{repo}@{branch}/{path}">
+        <small class="muted">占位符：<code>{owner}</code> <code>{repo}</code> <code>{branch}</code> <code>{prefix}</code> <code>{path}</code> <code>{hash}</code></small>
+      </label>
+      <div class="kv"><span>图片直链基址</span><code id="cdnBase">—</code></div>
+      <div class="kv highlight">
+        <span>Twikoo 的 <code>GRAVATAR_CDN</code></span>
+        <code id="twikooValue">—</code>
+        <button class="mini" data-copy-target="twikooValue" type="button">复制</button>
+      </div>
+      <p class="muted small">把上面这个值（<strong>不带</strong> <code>https://</code>，<strong>不带</strong> <code>/avatar</code>）填进 Twikoo 的头像 CDN 设置即可。Twikoo 会自动追加 <code>/avatar/</code> 与邮箱哈希。</p>
+      <p class="muted small" id="presetNote"></p>
+      <p class="warn small" id="cdnPurgeNote" hidden></p>
+    </div>
+
+    <div class="card">
+      <h2>邮箱 → 头像链接 批量生成</h2>
+      <p class="muted">每行一个邮箱，也支持逗号 / 分号分隔。用于给已有评论者批量生成链接，或核对某个邮箱是否已经上传过头像。</p>
+      <textarea id="bulkEmails" rows="6" placeholder="alice@example.com&#10;bob@example.com&#10;12345@qq.com"></textarea>
+      <div class="row wrap">
+        <button id="genLinks" class="primary" type="button">生成</button>
+        <button id="copyAllLinks" type="button" disabled>复制全部链接</button>
+        <button id="downloadTxt" type="button" disabled>下载 TXT</button>
+        <button id="downloadCsv" type="button" disabled>下载 CSV</button>
+        <button id="downloadJson" type="button" disabled>下载 JSON</button>
+      </div>
+      <div id="linkResult" class="link-result"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Twikoo 配置速查</h2>
+    <div id="twikooSnippet" class="snippet"></div>
+  </div>
+</section>
+
+<!-- ============================ 设置 ============================ -->
+<section class="panel" id="tab-settings">
+  <div class="grid-2">
+    <div class="card">
+      <h2>GitHub 连接</h2>
+      <label class="field">
+        <span>Personal Access Token</span>
+        <span class="input-row">
+          <input id="tokenInput" type="password" placeholder="github_pat_… 或 ghp_…" autocomplete="off" spellcheck="false">
+          <button id="toggleToken" class="mini" type="button">显示</button>
+        </span>
+        <small class="muted">细粒度令牌请只授予目标仓库的 <code>Contents: Read and write</code>。令牌只保存在你的浏览器里，不会发给任何第三方。</small>
+      </label>
+      <label class="field">
+        <span>令牌保存方式</span>
+        <select id="tokenStorage">
+          <option value="local">保存在浏览器（localStorage，下次打开仍有效）</option>
+          <option value="session">仅本次会话（关闭标签页即失效，更安全）</option>
+        </select>
+      </label>
+      <div class="grid-3">
+        <label class="field"><span>仓库所有者</span><input id="ownerInput" placeholder="your-name" autocomplete="off"></label>
+        <label class="field"><span>仓库名</span><input id="repoInput" placeholder="your-avatar-bed" autocomplete="off"></label>
+        <label class="field"><span>分支</span><input id="branchInput" placeholder="main" list="branchList" autocomplete="off"><datalist id="branchList"></datalist></label>
+      </div>
+      <div class="row wrap">
+        <button id="saveSettings" class="primary" type="button">保存设置</button>
+        <button id="testConn" type="button">测试连接</button>
+        <button id="loadBranches" type="button">读取分支列表</button>
+        <button id="createRepo" type="button">创建仓库</button>
+      </div>
+      <div id="repoInfo" class="info-box" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>命名与存储</h2>
+      <label class="field">
+        <span>仓库内目录</span>
+        <input id="prefixInput" placeholder="avatar" autocomplete="off">
+        <small class="muted">必须是 <code>avatar</code> 才能兼容 Twikoo（Twikoo 会在 CDN 基址后硬编码追加 <code>/avatar/</code>）。<span id="prefixWarn" class="warn" hidden>⚠️ 当前不是 avatar，Twikoo 将取不到图片！</span></small>
+      </label>
+      <label class="field">
+        <span>哈希算法</span>
+        <select id="algorithmSelect">
+          <option value="sha256">SHA-256（Twikoo 自定义 CDN 使用，推荐）</option>
+          <option value="md5">MD5（仅 cravatar.cn 这类第三方 CDN 使用）</option>
+        </select>
+        <small class="muted" id="algoWarn" hidden>⚠️ MD5 与 Twikoo 的自定义 CDN 不兼容，只有 CDN 是 cravatar.cn 时才会生效。</small>
+      </label>
+      <label class="field">
+        <span>CDN 线路</span>
+        <select id="settingsPreset"></select>
+      </label>
+      <label class="check"><input type="checkbox" id="keepExtChk"><span>保留原始扩展名（<strong>会导致 Twikoo 取不到图片</strong>，仅在做普通图床时勾选）</span></label>
+      <label class="check"><input type="checkbox" id="autoPurgeChk"><span>覆盖 / 删除后自动刷新 CDN 缓存（<strong>只对 <code>cdn.jsdelivr.net</code> 与 <code>gcore.jsdelivr.net</code> 有效</strong>；<code>cdn.jsdmirror.com</code> 是跑在腾讯 EdgeOne 上的第三方镜像，jsDelivr 的 purge 管不到它，只能等它自己的缓存过期）</span></label>
+      <label class="field">
+        <span>默认 fallback 参数（Twikoo 的 <code>DEFAULT_GRAVATAR</code>）</span>
+        <select id="defaultGravatar">
+          <option value="mp">mp · 神秘人</option>
+          <option value="identicon">identicon · 几何图形</option>
+          <option value="monsterid">monsterid · 小怪兽</option>
+          <option value="wavatar">wavatar · 卡通脸</option>
+          <option value="retro">retro · 像素风</option>
+          <option value="robohash">robohash · 机器人</option>
+          <option value="blank">blank · 透明</option>
+        </select>
+        <small class="muted">该参数由 Twikoo 拼在链接末尾（<code>?d=mp</code>）。注意 jsDelivr 会忽略查询串，所以它<strong>不会</strong>在本图床上生效，仅用于链接一致性排查。</small>
+      </label>
+      <div class="grid-2">
+        <label class="field"><span>提交并发数</span><input id="concurrencyInput" type="number" min="1" max="10" value="3"></label>
+        <label class="field"><span>压缩最长边（px）</span><input id="maxEdgeInput" type="number" min="16" max="4096" value="512"></label>
+      </div>
+      <label class="field">
+        <span>提交信息模板</span>
+        <input id="commitTemplateInput" placeholder="avatar: add {hash}" autocomplete="off">
+        <small class="muted">占位符：<code>{action}</code> <code>{hash}</code> <code>{path}</code> <code>{email}</code></small>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>备注同步（邮箱 ↔ 哈希）</h2>
+    <p class="muted small">
+      备注就是「哪个邮箱对应哪个头像文件」。<strong>SHA-256 不可逆</strong>，备注一丢，就再也没法知道某个头像是谁的了
+      —— 所以不建议只放在浏览器里。
+    </p>
+    <label class="check"><input type="checkbox" id="notesEnabledChk"><span>把备注同步到 GitHub 仓库（换设备、清缓存都不会丢）</span></label>
+    <label class="field">
+      <span>备注文件路径</span>
+      <input id="notesPathInput" placeholder=".youtiao/notes.json" autocomplete="off" spellcheck="false">
+      <small class="muted">默认 <code>.youtiao/notes.json</code>，刻意避开 <code>avatar/</code> 目录，以免被图库当成头像。</small>
+    </label>
+    <label class="field">
+      <span>备注仓库（留空 = 与图床同仓库）</span>
+      <input id="notesRepoInput" placeholder="你的用户名/一个私有仓库" autocomplete="off" spellcheck="false">
+      <small class="muted">
+        ⚠️ 图床仓库<strong>必须是公开的</strong>（jsDelivr 只能读公开仓库），所以备注放在那里就意味着
+        <strong>所有评论者的邮箱公开可读</strong>。建议新建一个<strong>私有仓库</strong>专门存备注，
+        填成 <code>owner/repo</code> 或 <code>owner/repo@分支</code>。
+      </small>
+    </label>
+    <div class="row wrap">
+      <button id="notesCreateRepo" type="button">创建私有备注仓库</button>
+      <button id="notesSyncNow" type="button">立即同步</button>
+      <button id="notesPullNow" type="button">从仓库拉取</button>
+    </div>
+    <div id="notesStatus" class="notes-status"><span class="dot"></span><span>—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>配置备份 / 恢复</h2>
+    <p class="muted small">
+      导出的是一个包含令牌、设置与全部备注的 JSON，换设备时导入即可。
+      备注已经会自动同步到仓库（见上一张卡片），所以这个导出主要是用来备份令牌与兜底。
+    </p>
+    <div class="row wrap">
+      <button id="exportAll" type="button">导出配置 + 备注</button>
+      <button id="importAll" type="button">导入配置 + 备注</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+      <button id="clearHistory" type="button">清空全部备注</button>
+      <button id="resetSettings" class="danger" type="button">重置全部设置</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 帮助 ============================ -->
+<section class="panel" id="tab-help">
+  <div class="card">
+    <h2>它是怎么工作的</h2>
+    <ol class="steps">
+      <li>评论者在 Twikoo 里留下邮箱，Twikoo 对邮箱做 <code>trim().toLowerCase()</code> 后计算 <strong>SHA-256</strong>，得到 64 位十六进制串。</li>
+      <li>Twikoo 拼出头像地址：<code>https://&lt;你填的 CDN 基址&gt;/avatar/&lt;sha256&gt;?d=mp</code>。</li>
+      <li>这个地址被解析到你的 GitHub 仓库里的 <code>avatar/&lt;sha256&gt;</code> 文件——也就是你在本工具上传的那张图。</li>
+    </ol>
+    <p class="muted">所以：<strong>图片必须放在仓库的 <code>avatar/</code> 目录下且不带扩展名</strong>，CDN 基址里则不能带 <code>/avatar</code>。</p>
+  </div>
+
+  <div class="card">
+    <h2>四步跑起来</h2>
+    <ol class="steps">
+      <li><strong>建图床仓库</strong>：GitHub 上新建一个 <strong>Public</strong> 仓库（jsDelivr 无法读取私有仓库），勾选 Add a README 以便有初始提交。</li>
+      <li><strong>建令牌</strong>：<span class="mono">Settings → Developer settings → Personal access tokens → Fine-grained tokens</span>，只授权这一个仓库，权限选 <span class="mono">Contents: Read and write</span>。</li>
+      <li><strong>填设置页</strong>：粘贴令牌、填 owner / 仓库名 / 分支，点「测试连接」。</li>
+      <li><strong>上传头像</strong>：在上传页填邮箱 + 拖入图片，上传成功后到「CDN 与 Twikoo」页复制 <code>GRAVATAR_CDN</code>，填进 Twikoo 后台的「头像 CDN」。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>必须知道的几个坑</h2>
+    <ul class="bullets">
+      <li><strong>QQ 邮箱不走这里。</strong>Twikoo 对 <code>12345@qq.com</code> 或纯数字 QQ 号会直接调用 QQ 头像接口，连自定义 CDN 都不用。</li>
+      <li><strong>仓库必须公开。</strong>jsDelivr 只能读取公开仓库；私有仓库需要自带令牌的反代，本工具不支持。</li>
+      <li><strong>无扩展名与 Content-Type。</strong>jsDelivr 不嗅探内容、只按文件名判定 MIME，所以哈希命名的文件会返回 <code>application/octet-stream</code>（带 <code>nosniff</code>）。这个组合在 Chromium/Edge 上<b>实测能正常显示</b>——浏览器在 <code>&lt;img&gt;</code> 场景仍会解码图片；真正会被拦的是 <code>text/plain</code> + <code>nosniff</code>，而本方案不会落到那一组合。Firefox / Safari 未实测。严格校验 MIME 的场景（CSS 背景图、图片代理、社交平台抓头像）建议用下一条的加固方案。</li>
+      <li><strong>加固方案。</strong>仓库里附带了 <code>extras/cloudflare-worker.js</code>，用一个免费 Cloudflare Worker 反代 jsDelivr 并按文件魔数强制返回 <code>Content-Type: image/*</code>，然后把 CDN 基址换成自己的 Worker 域名即可。上线前也可以先确证自己仓库的真实响应头：<code>curl -sI "https://cdn.jsdmirror.com/gh/你/仓库@main/avatar/某个sha256"</code>。</li>
+      <li><strong>换了头像评论里还是旧的？</strong>分两种情况：<code>cdn.jsdelivr.net</code> / <code>gcore.jsdelivr.net</code> 是 jsDelivr 自家的节点，本工具会在覆盖/删除后自动调用它的 purge 接口立即刷新（也可以在「图库管理」里选中图片手动点「刷新 CDN 缓存」）。而 <code>cdn.jsdmirror.com</code> 是<strong>第三方镜像（腾讯 EdgeOne）</strong>，有自己的多级缓存，<strong>purge 对它无效</strong>——实测它没有公开的刷新接口，缓存最长约 24 小时（浏览器侧 5 分钟）。想让它立刻生效：在 Twikoo 里把 <code>DEFAULT_GRAVATAR</code> 从 <code>mp</code> 改成别的值即可让所有头像 URL 变化、绕过旧缓存，或者换用能 purge 的线路。</li>
+      <li><strong>Token 安全。</strong>令牌存在浏览器里，请使用最小权限的细粒度令牌，并避免在公共电脑上勾选「保存在浏览器」。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>关于邮箱备注</h2>
+    <p class="muted">SHA-256 不可逆，仅凭文件名无法知道是谁的头像。本工具会在你上传时把「邮箱 ↔ 哈希」记录下来，于是图库里能直接显示邮箱、能按邮箱搜索。</p>
+    <p class="muted">这份备注会<strong>自动同步到 GitHub 仓库里的一个文件</strong>（默认 <code>.youtiao/notes.json</code>），所以换设备、清浏览器缓存都不会丢。本地也留一份缓存，离线照样能显示。</p>
+    <p class="muted">要注意：<strong>图床仓库必须是公开的</strong>，所以备注写进同一个仓库 = 所有评论者的邮箱公开可读。因此第一次写入前会让你选一次，也可以把备注放进一个<strong>独立的私有仓库</strong>（设置页有「创建私有备注仓库」按钮）。</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <span class="muted small">油条 · 零后端 · 所有请求从你的浏览器直接发往 api.github.com 与 jsDelivr</span>
+</footer>
+
+<div id="toasts" class="toasts"></div>
+
+<dialog id="modal" class="modal">
+  <form method="dialog">
+    <h3 id="modalTitle">提示</h3>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button value="cancel" type="submit" id="modalCancel">取消</button>
+      <button value="confirm" type="submit" class="primary" id="modalConfirm">确定</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="lightbox" class="lightbox">
+  <form method="dialog"><button class="lightbox-close" type="submit" aria-label="关闭">✕</button></form>
+  <img id="lightboxImg" alt="预览">
+  <div id="lightboxCaption" class="lightbox-caption"></div>
+</dialog>
+
+<!-- 单文件版：所有模块已内联为一个普通脚本，避开 file:// 对 ES 模块的同源限制 -->
+    <script>
+(function () {
+'use strict';
+
+/* ================= format.js ================= */
+/**
+ * format.js —— 纯格式化 / 分页 / 导出工具（无 DOM，可单元测试）。
+ */
+
+/** 人类可读的文件体积。 */
+function humanSize(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  if (n < 1024) return `${n} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`;
+}
+
+/** 时间戳 → 本地时间字符串。 */
+function fmtDateTime(ts) {
+  const d = new Date(Number(ts));
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** HTML 转义 —— 仓库里的文件名可能带尖括号，注入 innerHTML 前必须过一遍。 */
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** 中间截断，保留头尾，便于展示长哈希。 */
+function truncateMiddle(value, head = 10, tail = 6) {
+  const s = String(value == null ? '' : value);
+  if (s.length <= head + tail + 1) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
+}
+
+/** 分页切片。 */
+function pageSlice(list, page, pageSize) {
+  const size = Math.max(1, Number(pageSize) || 24);
+  const totalPages = Math.max(1, Math.ceil(list.length / size));
+  const current = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const start = (current - 1) * size;
+  return { items: list.slice(start, start + size), page: current, totalPages, start, size };
+}
+
+/** 生成分页按钮要显示的页码（首尾 + 当前附近，其余用省略号）。 */
+function pageNumbers(current, totalPages) {
+  const out = [];
+  const push = (v) => {
+    if (!out.includes(v)) out.push(v);
+  };
+  push(1);
+  for (let p = current - 1; p <= current + 1; p++) if (p > 1 && p < totalPages) push(p);
+  if (totalPages > 1) push(totalPages);
+  const withGaps = [];
+  let prev = 0;
+  for (const p of out.sort((a, b) => a - b)) {
+    if (prev && p - prev > 1) withGaps.push('…');
+    withGaps.push(p);
+    prev = p;
+  }
+  return withGaps;
+}
+
+/** 转 CSV（自动加 BOM，Excel 打开中文不乱码）。 */
+function toCsv(rows, headers) {
+  const esc = (v) => {
+    const s = String(v == null ? '' : v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [];
+  if (Array.isArray(headers) && headers.length) lines.push(headers.map(esc).join(','));
+  for (const row of rows) {
+    lines.push(
+      (Array.isArray(row) ? row : (headers || Object.keys(row)).map((k) => row[k])).map(esc).join(',')
+    );
+  }
+  return '\uFEFF' + lines.join('\r\n');
+}
+
+/** 链接列表 → Markdown 图片语法，可直接贴进博客。 */
+function toMarkdown(entries) {
+  return entries
+    .map((e) => {
+      const alt = e.email || e.name || e.hash || 'avatar';
+      return `![${alt}](${e.url})`;
+    })
+    .join('\n');
+}
+
+/** 链接列表 → 纯文本（每行一个 URL）。 */
+function toPlainLinks(entries) {
+  return entries.map((e) => e.url).join('\n');
+}
+
+/** 按 key 去重，保留首次出现。 */
+function uniqueBy(list, keyFn) {
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const key = keyFn(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/** 安全文件名（用于下载）。 */
+function safeFileName(name) {
+  return String(name == null ? 'file' : name).replace(/[\\/:*?"<>|]/g, '_').slice(0, 120);
+}
+
+/* ================= hash.js ================= */
+/**
+ * hash.js —— 纯 JS 的 SHA-256 / MD5 与字节编解码工具。
+ *
+ * 为什么不用 WebCrypto？
+ *   1. crypto.subtle 只在安全上下文（https / localhost）可用，本地双击 index.html（file://）会直接不可用；
+ *   2. crypto.subtle 是异步的，会让「输入邮箱即时预览哈希」的交互变复杂；
+ *   3. 纯 JS 实现是同步的，而且可以被 Node 的单元测试直接 import 对拍，保证正确性。
+ *
+ * 本文件不依赖任何 DOM，可在浏览器与 Node 中通用。
+ * 正确性由 tests/hash.test.mjs 用 node:crypto 对拍保证。
+ */
+
+/* ------------------------------------------------------------------ *
+ * 字节编码工具
+ * ------------------------------------------------------------------ */
+
+const textEncoder = typeof TextEncoder !== 'undefined' ? new TextEncoder() : null;
+
+/** 把字符串按 UTF-8 编码为 Uint8Array（与 Twikoo 内部 js 哈希库行为一致）。 */
+function utf8Bytes(str) {
+  const s = String(str);
+  if (textEncoder) return textEncoder.encode(s);
+
+  // 极老环境的兜底实现（不含 TextEncoder 时）
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let code = s.charCodeAt(i);
+    if (code < 0x80) {
+      out.push(code);
+    } else if (code < 0x800) {
+      out.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < s.length) {
+      const next = s.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        code = 0x10000 + ((code - 0xd800) << 10) + (next - 0xdc00);
+        i++;
+        out.push(
+          0xf0 | (code >> 18),
+          0x80 | ((code >> 12) & 0x3f),
+          0x80 | ((code >> 6) & 0x3f),
+          0x80 | (code & 0x3f)
+        );
+        continue;
+      }
+      out.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    } else {
+      out.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+    }
+  }
+  return new Uint8Array(out);
+}
+
+/** 字节数组 → 小写十六进制字符串。 */
+function bytesToHex(bytes) {
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i].toString(16).padStart(2, '0');
+  }
+  return out;
+}
+
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** 字节数组 → base64（GitHub Contents API 需要）。 */
+function bytesToBase64(bytes) {
+  let out = '';
+  const len = bytes.length;
+  let i = 0;
+  for (; i + 2 < len; i += 3) {
+    const n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    out += B64_CHARS[(n >> 18) & 63] + B64_CHARS[(n >> 12) & 63] + B64_CHARS[(n >> 6) & 63] + B64_CHARS[n & 63];
+  }
+  const rest = len - i;
+  if (rest === 1) {
+    const n = bytes[i] << 16;
+    out += B64_CHARS[(n >> 18) & 63] + B64_CHARS[(n >> 12) & 63] + '==';
+  } else if (rest === 2) {
+    const n = (bytes[i] << 16) | (bytes[i + 1] << 8);
+    out += B64_CHARS[(n >> 18) & 63] + B64_CHARS[(n >> 12) & 63] + B64_CHARS[(n >> 6) & 63] + '=';
+  }
+  return out;
+}
+
+/** 去掉 base64 中的换行/空白（GitHub 返回的 blob 会被折行）。 */
+function stripBase64Whitespace(b64) {
+  return String(b64).replace(/[\r\n\s]/g, '');
+}
+
+/** base64 → 文本（按 UTF-8 解码，中文不会乱码）。 */
+function base64ToText(b64) {
+  const binary = atob(stripBase64Whitespace(b64));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+/** 文本 → base64（GitHub Contents API 要求）。 */
+function textToBase64(text) {
+  return bytesToBase64(utf8Bytes(text));
+}
+
+/* ------------------------------------------------------------------ *
+ * SHA-256
+ * ------------------------------------------------------------------ */
+
+const SHA256_K = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+]);
+
+/** 对字节数组做 SHA-256。 */
+function sha256Bytes(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const len = bytes.length;
+  // 补齐规则：1 字节 0x80 + 8 字节大端位长，整体向上取 64 的倍数。
+  // 等价于 ceil((len + 9) / 64) * 64；写成 len + 8 是为了让边界（len ≡ 55 mod 64）落在正确分组。
+  const paddedLength = (((len + 8) >> 6) + 1) << 6;
+  const buf = new Uint8Array(paddedLength);
+  buf.set(bytes);
+  buf[len] = 0x80;
+
+  const view = new DataView(buf.buffer);
+  const bitLen = len * 8;
+  view.setUint32(paddedLength - 8, Math.floor(bitLen / 0x100000000));
+  view.setUint32(paddedLength - 4, bitLen >>> 0);
+
+  const h = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+  ]);
+  const w = new Uint32Array(64);
+
+  for (let off = 0; off < paddedLength; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(off + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const x = w[i - 15];
+      const y = w[i - 2];
+      const s0 = ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3);
+      const s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+
+    let a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+
+    for (let i = 0; i < 64; i++) {
+      const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+      const ch = (e & f) ^ (~e & g);
+      const temp1 = (hh + S1 + ch + SHA256_K[i] + w[i]) >>> 0;
+      const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = (S0 + maj) >>> 0;
+
+      hh = g; g = f; f = e;
+      e = (d + temp1) >>> 0;
+      d = c; c = b; b = a;
+      a = (temp1 + temp2) >>> 0;
+    }
+
+    h[0] = (h[0] + a) >>> 0; h[1] = (h[1] + b) >>> 0; h[2] = (h[2] + c) >>> 0; h[3] = (h[3] + d) >>> 0;
+    h[4] = (h[4] + e) >>> 0; h[5] = (h[5] + f) >>> 0; h[6] = (h[6] + g) >>> 0; h[7] = (h[7] + hh) >>> 0;
+  }
+
+  const out = new Uint8Array(32);
+  const outView = new DataView(out.buffer);
+  for (let i = 0; i < 8; i++) outView.setUint32(i * 4, h[i]);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * MD5（仅为兼容 cravatar.cn 这类使用 MD5 的第三方 CDN，默认不使用）
+ * ------------------------------------------------------------------ */
+
+const MD5_S = [
+  7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+  5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+  4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+  6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
+];
+
+const MD5_K = new Uint32Array([
+  0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+  0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+  0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa, 0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+  0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed, 0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+  0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c, 0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+  0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05, 0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+  0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039, 0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+  0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1, 0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
+]);
+
+/** 对字节数组做 MD5。 */
+function md5Bytes(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const len = bytes.length;
+  const paddedLength = (((len + 8) >> 6) + 1) << 6;
+  const buf = new Uint8Array(paddedLength);
+  buf.set(bytes);
+  buf[len] = 0x80;
+
+  const view = new DataView(buf.buffer);
+  const bitLen = len * 8;
+  view.setUint32(paddedLength - 8, bitLen >>> 0, true);
+  view.setUint32(paddedLength - 4, Math.floor(bitLen / 0x100000000), true);
+
+  const m = new Uint32Array(16);
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+
+  for (let off = 0; off < paddedLength; off += 64) {
+    for (let i = 0; i < 16; i++) m[i] = view.getUint32(off + i * 4, true);
+
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16) {
+        F = (B & C) | (~B & D);
+        g = i;
+      } else if (i < 32) {
+        F = (D & B) | (~D & C);
+        g = (5 * i + 1) % 16;
+      } else if (i < 48) {
+        F = B ^ C ^ D;
+        g = (3 * i + 5) % 16;
+      } else {
+        F = C ^ (B | ~D);
+        g = (7 * i) % 16;
+      }
+      F = (F + A + MD5_K[i] + m[g]) >>> 0;
+      A = D;
+      D = C;
+      C = B;
+      const s = MD5_S[i];
+      B = (B + (((F << s) | (F >>> (32 - s))) >>> 0)) >>> 0;
+    }
+
+    a0 = (a0 + A) >>> 0; b0 = (b0 + B) >>> 0; c0 = (c0 + C) >>> 0; d0 = (d0 + D) >>> 0;
+  }
+
+  const out = new Uint8Array(16);
+  const outView = new DataView(out.buffer);
+  outView.setUint32(0, a0, true);
+  outView.setUint32(4, b0, true);
+  outView.setUint32(8, c0, true);
+  outView.setUint32(12, d0, true);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * 对外 API
+ * ------------------------------------------------------------------ */
+
+/**
+ * 邮箱规范化 —— 必须与 Twikoo 的 normalizeMail 完全一致：
+ *   Twikoo: `normalizeMail = (e) => String(e).trim().toLowerCase()`
+ * 任何差异都会导致算出的哈希与 Twikoo 请求的路径不匹配。
+ */
+function normalizeMail(email) {
+  return String(email == null ? '' : email).trim().toLowerCase();
+}
+
+/** 字符串 → SHA-256 十六进制（小写）。 */
+function sha256Hex(str) {
+  return bytesToHex(sha256Bytes(utf8Bytes(str)));
+}
+
+/** 字符串 → MD5 十六进制（小写）。 */
+function md5Hex(str) {
+  return bytesToHex(md5Bytes(utf8Bytes(str)));
+}
+
+/**
+ * 由邮箱计算头像文件名（不含扩展名）。
+ * @param {string} email
+ * @param {'sha256'|'md5'} [algorithm='sha256'] Twikoo 自定义 CDN 用 sha256；cravatar.cn 用 md5。
+ * @returns {string} 64 位（sha256）或 32 位（md5）小写十六进制
+ */
+function emailToFileName(email, algorithm = 'sha256') {
+  const normalized = normalizeMail(email);
+  return algorithm === 'md5' ? md5Hex(normalized) : sha256Hex(normalized);
+}
+
+/** 顺手判断是否 QQ 邮箱 —— Twikoo 对 QQ 邮箱会走自己的接口，不走自定义 CDN。 */
+function isQQMail(email) {
+  const mail = String(email == null ? '' : email).trim();
+  return /^[1-9][0-9]{4,10}$/.test(mail) || /^[1-9][0-9]{4,10}@qq\.com$/i.test(mail);
+}
+
+/* ================= paths.js ================= */
+/**
+ * paths.js —— 仓库内路径构建规则（纯函数，无 DOM，可单元测试）。
+ *
+ * 命名规则（来自需求）：
+ *   邮箱 → normalizeMail（trim + 小写）→ SHA-256 → 64 位十六进制字符串 → 作为文件名，去掉扩展名。
+ *
+ * 目录规则（兼容 Twikoo）：
+ *   Twikoo 渲染头像时写死了 URL 模板 `https://{GRAVATAR_CDN}/avatar/{sha256}?d={默认头像}`，
+ *   中间的 `/avatar/` 由 Twikoo 追加，无法配置。因此图片必须存放在仓库的 `avatar/` 目录下，
+ *   用户在 Twikoo 里填的 GRAVATAR_CDN 则是不带 `/avatar` 的基址。
+ *
+ *   本文件把目录前缀做成了可配置项（默认 `avatar`），一旦改掉就不再兼容 Twikoo，
+ *   UI 会就此给出明确警告。
+ */
+
+/** Twikoo 硬编码追加的目录名。 */
+const TWIKOO_DIR = 'avatar';
+
+/** 默认的仓库内目录前缀。 */
+const DEFAULT_PREFIX = TWIKOO_DIR;
+
+/** 归一化目录前缀：去掉首尾斜杠与空白；空串表示直接放在仓库根目录。 */
+function normalizePrefix(prefix) {
+  if (prefix == null) return DEFAULT_PREFIX;
+  return String(prefix)
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .replace(/\/{2,}/g, '/');
+}
+
+/**
+ * 构建仓库内文件路径。
+ * @param {string} fileName 形如 `973dfe46...813b`
+ * @param {{prefix?: string, keepExtension?: boolean, extension?: string}} [options]
+ */
+function buildRepoPath(fileName, options = {}) {
+  const prefix = normalizePrefix(options.prefix);
+  let name = String(fileName == null ? '' : fileName).replace(/^\/+/, '');
+  if (options.keepExtension && options.extension) {
+    const ext = String(options.extension).replace(/^\.+/, '').toLowerCase();
+    if (ext && !name.toLowerCase().endsWith('.' + ext)) name += '.' + ext;
+  }
+  return prefix ? `${prefix}/${name}` : name;
+}
+
+/** 从仓库路径反推文件名（末段）。 */
+function fileNameOf(repoPath) {
+  const p = String(repoPath == null ? '' : repoPath);
+  const idx = p.lastIndexOf('/');
+  return idx === -1 ? p : p.slice(idx + 1);
+}
+
+/** 从仓库路径反推目录前缀（无目录时为空串）。 */
+function prefixOf(repoPath) {
+  const p = String(repoPath == null ? '' : repoPath);
+  const idx = p.lastIndexOf('/');
+  return idx === -1 ? '' : p.slice(0, idx);
+}
+
+/** 判断某个仓库路径是否位于给定前缀之下。 */
+function isUnderPrefix(repoPath, prefix) {
+  const p = normalizePrefix(prefix);
+  const path = String(repoPath == null ? '' : repoPath);
+  if (!p) return true;
+  return path === p ? false : path.startsWith(p + '/');
+}
+
+/** 取文件扩展名（小写，不含点）；没有则返回空串。 */
+function extensionOf(fileName) {
+  const name = String(fileName == null ? '' : fileName);
+  const idx = name.lastIndexOf('.');
+  if (idx <= 0 || idx === name.length - 1) return '';
+  return name.slice(idx + 1).toLowerCase();
+}
+
+/** 去掉扩展名。 */
+function stripExtension(fileName) {
+  const name = String(fileName == null ? '' : fileName);
+  const idx = name.lastIndexOf('.');
+  if (idx <= 0) return name;
+  return name.slice(0, idx);
+}
+
+/** 常见图片扩展名 —— 只有这些才会被「文件名即邮箱」模式剥掉。 */
+const IMAGE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'jpe', 'gif', 'webp', 'bmp', 'svg', 'avif', 'ico', 'tif', 'tiff', 'heic', 'heif'
+]);
+
+/**
+ * 由「文件名即邮箱」的批量模式推断邮箱：`a@b.com.png` → `a@b.com`。
+ * 注意只剥图片扩展名，否则 `a@b.com` 会被错误地剥成 `a@b`（`.com` 长得就像扩展名）。
+ */
+function emailFromFileName(fileName) {
+  const name = String(fileName == null ? '' : fileName).trim();
+  const ext = extensionOf(name);
+  const base = IMAGE_EXTENSIONS.has(ext) ? name.slice(0, name.length - ext.length - 1) : name;
+  return base.trim().replace(/\s+/g, '');
+}
+
+/** 粗略校验邮箱格式，仅用于 UI 提示，不阻断上传（Twikoo 也可能存非邮箱标识）。 */
+function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value == null ? '' : value).trim());
+}
+
+/** 判断一个字符串是否是本系统生成的文件名（32 位 md5 或 64 位 sha256）。 */
+function looksLikeHashName(name) {
+  return /^[0-9a-f]{32}$/.test(name) || /^[0-9a-f]{64}$/.test(name);
+}
+
+/* ================= cdn.js ================= */
+/**
+ * cdn.js —— CDN 基址生成 + 头像直链构建（纯函数，无 DOM，可单元测试）。
+ *
+ * 名词约定
+ *   base   ：CDN 基址，形如 `https://cdn.jsdmirror.com/gh/user/repo@main`
+ *   value  ：填进 Twikoo 的 GRAVATAR_CDN 的值，是 base **去掉协议头、去掉结尾斜杠、且不含 /avatar**
+ *   path   ：仓库内路径，形如 `avatar/973dfe46...813b`
+ */
+
+
+
+
+/** 去掉协议头与结尾斜杠，得到可直接填进 Twikoo 的 CDN 值。 */
+function toTwikooValue(url) {
+  return String(url == null ? '' : url)
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+    .replace(/\/avatar$/i, ''); // 防止用户误把 /avatar 也填进去（Twikoo 会再加一次）
+}
+
+/** 拼接 URL，避免出现重复斜杠。 */
+function joinUrl(base, ...segments) {
+  let out = String(base == null ? '' : base).trim().replace(/\/+$/, '');
+  for (const seg of segments) {
+    const s = String(seg == null ? '' : seg).replace(/^\/+|\/+$/g, '');
+    if (s) out += '/' + s;
+  }
+  return out;
+}
+
+/**
+ * 内置 CDN 预设。
+ * build(ctx) 接收 { owner, repo, branch }，返回不带结尾斜杠的基址。
+ */
+const CDN_PRESETS = [
+  {
+    id: 'jsdelivr',
+    label: 'jsDelivr 官方（推荐）',
+    build: ({ owner, repo, branch }) => `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branch}`,
+    note: '全球节点，自动压缩与缓存；国内部分网络偶发不稳定。'
+  },
+  {
+    id: 'jsdmirror',
+    label: 'jsDelivr 国内镜像 cdn.jsdmirror.com',
+    build: ({ owner, repo, branch }) => `https://cdn.jsdmirror.com/gh/${owner}/${repo}@${branch}`,
+    note: 'jsDelivr 的国内反代镜像，国内访问通常更快，路径规则与官方一致。'
+  },
+  {
+    id: 'gcore',
+    label: 'jsDelivr Gcore 节点',
+    build: ({ owner, repo, branch }) => `https://gcore.jsdelivr.net/gh/${owner}/${repo}@${branch}`,
+    note: 'jsDelivr 的 Gcore 线路，国内部分地区比官方节点快。'
+  },
+  {
+    id: 'statically',
+    label: 'Statically',
+    build: ({ owner, repo, branch }) => `https://cdn.statically.io/gh/${owner}/${repo}/${branch}`,
+    note: '第三方 GitHub CDN，注意 /gh/user/repo/branch 的层级与 jsDelivr 不同。'
+  },
+  {
+    id: 'raw',
+    label: 'GitHub Raw（无 CDN 加速）',
+    build: ({ owner, repo, branch }) => `https://raw.githubusercontent.com/${owner}/${repo}/${branch}`,
+    note: '直连 GitHub，国内访问慢，且响应头带 nosniff，可作排障对照。'
+  },
+  {
+    id: 'pages',
+    label: 'GitHub Pages（需开启 Pages）',
+    build: ({ owner, repo }) => `https://${owner}.github.io/${repo}`,
+    note: '需在仓库 Settings → Pages 中开启；默认分支根目录发布。'
+  },
+  {
+    id: 'ghproxy',
+    label: 'ghproxy 加速 Raw',
+    build: ({ owner, repo, branch }) =>
+      `https://ghproxy.net/https://raw.githubusercontent.com/${owner}/${repo}/${branch}`,
+    note: '公共反代，稳定性不保证，仅作备选。'
+  },
+  {
+    id: 'custom',
+    label: '自定义模板',
+    build: null,
+    note: '支持占位符 {owner} {repo} {branch} {prefix} {path} {hash}，例如 https://img.example.com/{path}'
+  }
+];
+
+/** 按 id 取预设。 */
+function getPreset(id) {
+  return CDN_PRESETS.find((p) => p.id === id) || CDN_PRESETS[0];
+}
+
+/** 应用自定义模板中的占位符。 */
+function applyTemplate(template, ctx) {
+  return String(template == null ? '' : template).replace(
+    /\{(owner|repo|branch|prefix|path|hash)\}/g,
+    (_, key) => {
+      const v = ctx[key];
+      return v == null ? '' : String(v);
+    }
+  );
+}
+
+/**
+ * 计算 CDN 基址。
+ * @param {{preset?:string, customTemplate?:string, owner:string, repo:string, branch:string, prefix?:string}} cfg
+ */
+function buildCdnBase(cfg) {
+  const owner = String(cfg.owner || '').trim();
+  const repo = String(cfg.repo || '').trim();
+  const branch = String(cfg.branch || 'main').trim() || 'main';
+  const preset = getPreset(cfg.preset);
+
+  if (preset.id === 'custom') {
+    const tpl = String(cfg.customTemplate || '').trim();
+    if (!tpl) return '';
+    return applyTemplate(tpl, {
+      owner,
+      repo,
+      branch,
+      prefix: normalizePrefix(cfg.prefix),
+      path: '',
+      hash: ''
+    }).replace(/\/+$/, '');
+  }
+
+  if (!owner || !repo) return '';
+  return preset.build({ owner, repo, branch });
+}
+
+/** 仓库内路径 → 完整直链。 */
+function buildFileUrl(cfg, repoPath) {
+  const base = buildCdnBase(cfg);
+  if (!base) return '';
+  return joinUrl(base, repoPath);
+}
+
+/** 由文件名（哈希）构建直链。 */
+function buildAvatarUrl(cfg, fileName) {
+  const prefix = normalizePrefix(cfg.prefix);
+  return buildFileUrl(cfg, prefix ? `${prefix}/${fileName}` : fileName);
+}
+
+/**
+ * 复刻 Twikoo 的请求地址，用于「预览 Twikoo 到底会请求什么」。
+ * Twikoo 源码：`https://${gravatarCdn}/avatar/${sha256(normalizeMail(mail))}?d=${defaultGravatar}`
+ * 注意这里无论本地 prefix 配成什么，Twikoo 用的都是硬编码的 /avatar。
+ */
+function buildTwikooRequestUrl(cfg, email, defaults = {}) {
+  const value = toTwikooValue(buildCdnBase(cfg));
+  if (!value) return '';
+  const hash = sha256Hex(normalizeMail(email));
+  const d = defaults.d || 'mp';
+  return `https://${value}/avatar/${hash}?d=${d}`;
+}
+
+/** 一次性给出某个邮箱在本项目下的全部关键信息（上传预览、批量生成器都用它）。 */
+function describeEmail(cfg, email, options = {}) {
+  const algorithm = options.algorithm === 'md5' ? 'md5' : 'sha256';
+  const normalized = normalizeMail(email);
+  const hash = emailToFileName(email, algorithm);
+  const prefix = normalizePrefix(cfg.prefix);
+  const repoPath = prefix ? `${prefix}/${hash}` : hash;
+  const base = buildCdnBase(cfg);
+  return {
+    email: String(email == null ? '' : email).trim(),
+    normalized,
+    algorithm,
+    hash,
+    repoPath,
+    base,
+    url: base ? joinUrl(base, repoPath) : '',
+    twikooValue: toTwikooValue(base),
+    twikooUrl: base ? buildTwikooRequestUrl(cfg, email, options) : '',
+    twikooCompatible: normalizePrefix(cfg.prefix) === 'avatar' && algorithm === 'sha256'
+  };
+}
+
+/** 批量：多行邮箱 → 信息数组。 */
+function describeEmails(cfg, rawText, options = {}) {
+  return String(rawText == null ? '' : rawText)
+    .split(/[\r\n,;，；]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((email) => describeEmail(cfg, email, options));
+}
+
+/* ------------------------------------------------------------------ *
+ * 缓存刷新（purge）
+ *
+ * jsDelivr 会把文件缓存很久（最长 7 天）。覆盖头像后如果不刷新缓存，
+ * 评论者看到的还是旧头像——对头像图床来说这是必须处理的问题。
+ * jsDelivr 提供了公开的 purge 端点，且响应头带 Access-Control-Allow-Origin: *
+ * （已实测：GET https://purge.jsdelivr.net/gh/user/repo@main/path → 200 + JSON），
+ * 所以浏览器可以直接调用。
+ * ------------------------------------------------------------------ */
+
+const PURGE_ENDPOINT = 'https://purge.jsdelivr.net';
+
+/**
+ * 哪些线路真的能被 purge.jsdelivr.net 刷新？
+ *
+ * purge 接口的响应里会列出它刷了哪些供应商，实测是 `{ CF: true, FY: true }`，
+ * 也就是只覆盖 jsDelivr 自家跑在 Cloudflare 与 Fastly 上的节点：
+ *   - cdn.jsdelivr.net   → 实测 X-Served-By 是 Fastly 节点（cache-fra-…、cache-nrt-…）✓
+ *   - gcore.jsdelivr.net → 实测 Server: cloudflare 且带 CF-Cache-Status ✓
+ *
+ * ⚠️ cdn.jsdmirror.com **不在其中**。实测证据：
+ *   - 响应头 `Server: ayao`、`X-Served-By: ayao`、`EO-Cache-Status: HIT`、`EO-LOG-UUID`
+ *     → 它是跑在腾讯 EdgeOne 上的第三方镜像，有自己独立的多级缓存；
+ *   - 它的 `Cache-Control: public, max-age=300, stale-while-revalidate=86400`
+ *     → 浏览器缓存 5 分钟，边缘最长可以继续用旧副本约 24 小时；
+ *   - `purge.jsdmirror.com` 这个域名不存在（TLS 层就连不上），
+ *     `cdn.jsdmirror.com/purge/…` 返回 401（需要授权，外部用不了）。
+ *   所以「刷新 jsDelivr 缓存」对它无效，UI 必须如实告知，不能让人以为刷过了。
+ */
+const PURGEABLE_PRESETS = new Set(['jsdelivr', 'gcore']);
+
+function isPurgeable(cfg) {
+  // 注意不能只写 getPreset(cfg.preset)：getPreset 对未知输入会回退到第一个预设（jsdelivr），
+  // 那样 cfg 为空时会被误判成「可刷新」。
+  if (!cfg || typeof cfg !== 'object') return false;
+  return PURGEABLE_PRESETS.has(getPreset(cfg.preset).id);
+}
+
+/**
+ * 描述当前线路的缓存刷新能力，用于给出「为什么不行 + 那怎么办」，而不是一句冷冰冰的不支持。
+ * @returns {{supported:boolean, reason:string, workaround:string}}
+ */
+function purgeSupport(cfg) {
+  // 这里必须自己先挡住空值：getPreset(undefined) 会回退到第一个预设（jsdelivr），
+  // 于是「什么都没配」会被误判成「可刷新」。
+  if (!cfg || typeof cfg !== 'object') {
+    return {
+      supported: false,
+      reason: '还没有配置 CDN 线路。',
+      workaround: '先在设置页填好仓库信息并选择一条 CDN 线路。'
+    };
+  }
+
+  const preset = getPreset(cfg.preset);
+  if (PURGEABLE_PRESETS.has(preset.id)) {
+    return { supported: true, reason: '', workaround: '' };
+  }
+
+  if (preset.id === 'jsdmirror') {
+    return {
+      supported: false,
+      reason:
+        'cdn.jsdmirror.com 是第三方镜像（跑在腾讯 EdgeOne 上，响应头里的 EO-Cache-Status 可以看出来），' +
+        '它有自己独立的多级缓存，jsDelivr 的 purge 接口管不到它。实测它也没有公开的刷新接口。',
+      workaround:
+        '想立刻让新头像生效，三条路：\n' +
+        '① 在 Twikoo 设置里把 DEFAULT_GRAVATAR 从 mp 改成别的值（比如 mp2）——Twikoo 拼出的头像 URL 会整体变化，等于绕过旧缓存，代价是所有头像一起重新拉取；\n' +
+        '② 把 CDN 线路换成 cdn.jsdelivr.net 或 gcore.jsdelivr.net，这两条能被 purge 立即刷新；\n' +
+        '③ 用项目里 extras/cloudflare-worker.js 自建反代，缓存时长由你自己控制。'
+    };
+  }
+
+  return {
+    supported: false,
+    reason: `${preset.label} 不是 jsDelivr 自家的 CDN，purge 接口对它无效。`,
+    workaround: '想能立即刷新，请把 CDN 线路改成 cdn.jsdelivr.net 或 gcore.jsdelivr.net。'
+  };
+}
+
+/** 生成某个仓库路径的缓存刷新地址。 */
+function buildPurgeUrl(cfg, repoPath) {
+  const owner = String((cfg && cfg.owner) || '').trim();
+  const repo = String((cfg && cfg.repo) || '').trim();
+  const branch = String((cfg && cfg.branch) || 'main').trim() || 'main';
+  const path = String(repoPath == null ? '' : repoPath).replace(/^\/+/, '');
+  if (!owner || !repo || !path) return '';
+  return `${PURGE_ENDPOINT}/gh/${owner}/${repo}@${branch}/${path}`;
+}
+
+/* ================= github.js ================= */
+/**
+ * github.js —— GitHub REST API v3 客户端。
+ *
+ * 只用浏览器可直接调用的 REST 接口（GitHub API 支持 CORS，无需任何后端）：
+ *   - 仓库信息 / 建库
+ *   - Git Trees API 拉全量文件列表（比 Contents API 更适合「一次列出全部头像」）
+ *   - Contents API 上传 / 更新 / 删除
+ *   - Git Blobs API 取回内容（用于重命名）
+ *
+ * 全程携带用户自己的 PAT，不经过任何第三方服务器。
+ */
+
+
+
+const API_BASE = 'https://api.github.com';
+
+/** 带状态码与原始响应体的错误，便于 UI 给出可操作的提示。 */
+class GitHubError extends Error {
+  constructor(message, { status = 0, method = '', endpoint = '', body = null, rateLimit = null } = {}) {
+    super(message);
+    this.name = 'GitHubError';
+    this.status = status;
+    this.method = method;
+    this.endpoint = endpoint;
+    this.body = body;
+    this.rateLimit = rateLimit;
+  }
+}
+
+/** 把 GitHub 的错误响应翻译成人话。 */
+function humanize(status, payload, { method, endpoint }) {
+  const raw = payload && payload.message ? payload.message : '';
+  if (status === 401) return '令牌无效或已过期（401）。请重新生成一个有 repo 权限的 GitHub Token。';
+  if (status === 403) {
+    if (/rate limit/i.test(raw)) return '触发了 GitHub 速率限制（403）。请稍后重试，或检查令牌额度。';
+    if (/Resource not accessible|not accessible by personal access token/i.test(raw)) {
+      return '令牌权限不足（403）。细粒度令牌需要该仓库的 Contents: Read and write 权限。';
+    }
+    return `GitHub 拒绝访问（403）：${raw || '权限不足'}`;
+  }
+  if (status === 404) {
+    if (/\/git\/trees|Git Repository is empty/i.test(raw)) return '仓库为空：还没有任何提交，请先创建一次初始提交（例如添加 README）。';
+    return `未找到资源（404）：${method} ${endpoint}。常见原因：仓库名/分支名拼错、令牌无权访问该私有仓库。`;
+  }
+  if (status === 409) {
+    // 空仓库（没有任何提交）在 git/trees 接口上返回的是 409 而不是 404
+    if (/Git Repository is empty/i.test(raw)) {
+      return '仓库是空的（还没有任何提交）。请先在 GitHub 上给仓库创建一次初始提交（例如添加 README），或在本工具的设置页点「创建仓库」。';
+    }
+    return `冲突（409）：${raw || '远端已被修改，请刷新后重试'}`;
+  }
+  if (status === 422) return `请求被拒绝（422）：${raw || '参数校验失败'}`;
+  if (status >= 500) return `GitHub 服务器错误（${status}），请稍后重试。`;
+  return `请求失败（${status}）：${raw || '未知错误'}`;
+}
+
+/** 并发受限的 map，避免一次性打爆 GitHub 速率限制。 */
+async function mapLimit(items, limit, worker) {
+  const list = Array.from(items);
+  const results = new Array(list.length);
+  let cursor = 0;
+  const size = Math.max(1, Math.min(Number(limit) || 1, list.length || 1));
+
+  const runners = new Array(size).fill(0).map(async () => {
+    for (;;) {
+      const index = cursor++;
+      if (index >= list.length) return;
+      try {
+        results[index] = { ok: true, value: await worker(list[index], index) };
+      } catch (error) {
+        results[index] = { ok: false, error };
+      }
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
+}
+
+class GitHubClient {
+  /**
+   * @param {{token:string, owner:string, repo:string, branch?:string}} options
+   */
+  constructor(options = {}) {
+    this.token = String(options.token || '').trim();
+    this.owner = String(options.owner || '').trim();
+    this.repo = String(options.repo || '').trim();
+    this.branch = String(options.branch || 'main').trim() || 'main';
+    this.lastRateLimit = null;
+  }
+
+  get configured() {
+    return Boolean(this.token && this.owner && this.repo);
+  }
+
+  get repoFullName() {
+    return `${this.owner}/${this.repo}`;
+  }
+
+  async request(method, endpoint, { body } = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+    const headers = {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+
+    const init = { method, headers };
+    if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+
+    let response;
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      throw new GitHubError(`网络请求失败：${error && error.message ? error.message : error}`, {
+        status: 0,
+        method,
+        endpoint
+      });
+    }
+
+    const remaining = response.headers.get('x-ratelimit-remaining');
+    if (remaining !== null) {
+      this.lastRateLimit = {
+        remaining: Number(remaining),
+        limit: Number(response.headers.get('x-ratelimit-limit') || 0),
+        reset: Number(response.headers.get('x-ratelimit-reset') || 0) * 1000
+      };
+    }
+
+    const text = await response.text();
+    let payload = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { message: text.slice(0, 500) };
+      }
+    }
+
+    if (!response.ok) {
+      throw new GitHubError(humanize(response.status, payload, { method, endpoint }), {
+        status: response.status,
+        method,
+        endpoint,
+        body: payload,
+        rateLimit: this.lastRateLimit
+      });
+    }
+    return { data: payload, response };
+  }
+
+  /* --------------------------- 账号 / 仓库 --------------------------- */
+
+  /** 取当前令牌对应的用户。 */
+  async getUser() {
+    const { data } = await this.request('GET', '/user');
+    return data;
+  }
+
+  /** 取仓库信息（同时充当连通性测试）。 */
+  async getRepo(owner = this.owner, repo = this.repo) {
+    const { data } = await this.request('GET', `/repos/${owner}/${repo}`);
+    return data;
+  }
+
+  /** 仓库是否存在（不存在返回 null，而不是抛错）。 */
+  async tryGetRepo() {
+    try {
+      return await this.getRepo();
+    } catch (error) {
+      if (error instanceof GitHubError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** 一键创建图床仓库。 */
+  async createRepo({ name = this.repo, isPrivate = false, description = '', autoInit = true } = {}) {
+    const { data } = await this.request('POST', '/user/repos', {
+      body: {
+        name,
+        private: Boolean(isPrivate),
+        description,
+        auto_init: Boolean(autoInit),
+        has_issues: false,
+        has_wiki: false,
+        has_projects: false
+      }
+    });
+    return data;
+  }
+
+  /** 列分支（用于设置里的分支下拉）。 */
+  async listBranches() {
+    const { data } = await this.request('GET', `/repos/${this.owner}/${this.repo}/branches?per_page=100`);
+    return Array.isArray(data) ? data.map((b) => b.name) : [];
+  }
+
+  /* ----------------------------- 文件树 ----------------------------- */
+
+  /**
+   * 拉取分支全量文件树。
+   * @param {string} [prefix] 只保留该前缀下的 blob；留空则返回全部。
+   * @param {{exclude?: string[]}} [options] exclude 里的路径会被剔除（例如备注文件）
+   * @returns {Promise<{files:Array<{path:string,name:string,sha:string,size:number}>, truncated:boolean, total:number}>}
+   */
+  async listTree(prefix = '', options = {}) {
+    const ref = encodeURIComponent(this.branch);
+    const { data } = await this.request('GET', `/repos/${this.owner}/${this.repo}/git/trees/${ref}?recursive=1`);
+    const tree = Array.isArray(data && data.tree) ? data.tree : [];
+
+    const normalized = String(prefix || '').replace(/^\/+|\/+$/g, '');
+    const exclude = new Set((options.exclude || []).map((p) => String(p).replace(/^\/+/, '')).filter(Boolean));
+    const files = tree
+      .filter((entry) => entry.type === 'blob')
+      .filter((entry) => (normalized ? entry.path.startsWith(normalized + '/') : true))
+      .filter((entry) => !exclude.has(entry.path))
+      .map((entry) => {
+        const idx = entry.path.lastIndexOf('/');
+        return {
+          path: entry.path,
+          name: idx === -1 ? entry.path : entry.path.slice(idx + 1),
+          sha: entry.sha,
+          size: Number(entry.size || 0)
+        };
+      });
+
+    return { files, truncated: Boolean(data && data.truncated), total: tree.length };
+  }
+
+  /** 取单个文件的元信息（含 sha），不存在返回 null。 */
+  async getFileMeta(path) {
+    const ref = encodeURIComponent(this.branch);
+    try {
+      const { data } = await this.request(
+        'GET',
+        `/repos/${this.owner}/${this.repo}/contents/${encodePath(path)}?ref=${ref}`
+      );
+      if (!data || Array.isArray(data)) return null;
+      return { path: data.path, sha: data.sha, size: data.size, downloadUrl: data.download_url };
+    } catch (error) {
+      if (error instanceof GitHubError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** 用 blob sha 取回文件内容（base64，已去掉折行）。 */
+  async getBlobBase64(sha) {
+    const { data } = await this.request('GET', `/repos/${this.owner}/${this.repo}/git/blobs/${sha}`);
+    if (!data || typeof data.content !== 'string') throw new GitHubError('无法读取文件内容', { status: 0 });
+    return data.content.replace(/[\r\n\s]/g, '');
+  }
+
+  /**
+   * 读取仓库里的一个文本文件（内容 + sha）。不存在时返回 null 而不是抛错。
+   * 备注文件就是靠它读出来的。
+   * @returns {Promise<{text:string, sha:string, size:number}|null>}
+   */
+  async getFileText(path) {
+    const ref = encodeURIComponent(this.branch);
+    try {
+      const { data } = await this.request(
+        'GET',
+        `/repos/${this.owner}/${this.repo}/contents/${encodePath(path)}?ref=${ref}`
+      );
+      if (!data || Array.isArray(data) || typeof data.content !== 'string') return null;
+      return { text: base64ToText(data.content), sha: data.sha, size: Number(data.size || 0) };
+    } catch (error) {
+      if (error instanceof GitHubError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /* --------------------------- 写入 / 删除 --------------------------- */
+
+  /**
+   * 上传或更新一个文件。
+   * @param {string} path 仓库内路径
+   * @param {string} base64Content 文件内容的 base64（不带 data: 前缀）
+   * @param {{message?:string, sha?:string, overwrite?:boolean, author?:{name:string,email:string}}} [options]
+   * @returns {Promise<{created:boolean, updated:boolean, skipped:boolean, commit:string, path:string, sha:string}>}
+   */
+  async putFile(path, base64Content, options = {}) {
+    const message = options.message || `avatar: update ${path}`;
+    const author = options.author && options.author.name ? options.author : undefined;
+
+    const send = async (sha) => {
+      const body = { message, content: base64Content, branch: this.branch };
+      if (sha) body.sha = sha;
+      if (author) {
+        body.committer = author;
+        body.author = author;
+      }
+      const { data } = await this.request(
+        'PUT',
+        `/repos/${this.owner}/${this.repo}/contents/${encodePath(path)}`,
+        { body }
+      );
+      return data;
+    };
+
+    try {
+      const data = await send(options.sha);
+      return {
+        created: !options.sha,
+        updated: Boolean(options.sha),
+        skipped: false,
+        commit: data && data.commit ? data.commit.sha : '',
+        path,
+        sha: data && data.content ? data.content.sha : ''
+      };
+    } catch (error) {
+      const existsWithoutSha =
+        error instanceof GitHubError &&
+        error.status === 422 &&
+        !options.sha &&
+        /sha/i.test(String((error.body && error.body.message) || ''));
+
+      if (!existsWithoutSha) throw error;
+
+      // 文件已存在：按配置决定覆盖还是跳过
+      const existing = await this.getFileMeta(path);
+      if (!existing) throw error;
+      if (!options.overwrite) {
+        return { created: false, updated: false, skipped: true, commit: '', path, sha: existing.sha };
+      }
+      const data = await send(existing.sha);
+      return {
+        created: false,
+        updated: true,
+        skipped: false,
+        commit: data && data.commit ? data.commit.sha : '',
+        path,
+        sha: data && data.content ? data.content.sha : ''
+      };
+    }
+  }
+
+  /** 删除文件（需要 sha）。 */
+  async deleteFile(path, sha, options = {}) {
+    const message = options.message || `avatar: delete ${path}`;
+    const { data } = await this.request(
+      'DELETE',
+      `/repos/${this.owner}/${this.repo}/contents/${encodePath(path)}`,
+      { body: { message, sha, branch: this.branch } }
+    );
+    return { commit: data && data.commit ? data.commit.sha : '', path };
+  }
+
+  /**
+   * 重命名 / 移动文件：先在新路径写入同样内容，再删掉旧路径。
+   * @returns {Promise<{from:string,to:string}>}
+   */
+  async moveFile(fromPath, toPath, oldSha, options = {}) {
+    const content = await this.getBlobBase64(oldSha);
+    await this.putFile(toPath, content, {
+      message: options.message || `avatar: rename ${fromPath} -> ${toPath}`,
+      overwrite: Boolean(options.overwrite),
+      author: options.author
+    });
+    await this.deleteFile(fromPath, oldSha, {
+      message: options.message || `avatar: rename ${fromPath} -> ${toPath}`
+    });
+    return { from: fromPath, to: toPath };
+  }
+}
+
+/** 对路径逐段做 URL 编码（保留 `/`）。 */
+function encodePath(path) {
+  return String(path || '')
+    .split('/')
+    .filter((s) => s !== '')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+/* ================= config.js ================= */
+/**
+ * config.js —— 设置的读写与默认值。
+ *
+ * 令牌可以只放在 sessionStorage（关掉标签页即失效），也可以放 localStorage（图省事）。
+ * 两种情况下都只存在用户自己的浏览器里，绝不会发往 GitHub 以外的任何地方。
+ */
+
+const SETTINGS_KEY = 'youtiao.settings.v1';
+const TOKEN_KEY = 'youtiao.token.v1';
+const THEME_KEY = 'youtiao.theme.v1';
+
+/**
+ * 项目曾经叫 GitAvatar，那时的存储键前缀是 `gh-avatar-bed`。
+ * 改名之后如果直接换键，用户浏览器里已经保存的令牌、设置、备注会「凭空消失」，
+ * 所以在读取之前先把旧键里的内容搬到新键（只搬一次，搬完删掉旧键）。
+ */
+const LEGACY_PREFIX = 'gh-avatar-bed';
+
+/**
+ * 把旧存储键的内容迁移到新键。
+ * @param {Storage|null} storage
+ * @param {string} newKey 新键（完整键名）
+ * @param {string} legacySuffix 旧键去掉前缀后的部分，例如 'settings.v1'
+ */
+function migrateStorageKey(storage, newKey, legacySuffix) {
+  if (!storage || !legacySuffix) return;
+  const legacyKey = `${LEGACY_PREFIX}.${legacySuffix}`;
+  try {
+    // 新键已有内容时以新键为准，但仍然清掉旧键，避免下次又被翻出来
+    if (storage.getItem(newKey) === null) {
+      const legacyValue = storage.getItem(legacyKey);
+      if (legacyValue !== null) storage.setItem(newKey, legacyValue);
+    }
+    storage.removeItem(legacyKey);
+  } catch {
+    /* 隐私模式下 storage 可能不可写，忽略即可 */
+  }
+}
+
+/**
+ * 预填默认值（开源版本留空，第一次打开时由用户自己填）。
+ *
+ * 只影响「浏览器里还没有保存过设置」时的初始值——保存过一次之后，以浏览器里的设置为准，
+ * 页面上随时可以改。如果你想自建一个「打开即用」的私有版本，把下面填成自己的仓库即可，
+ * 例如 { owner: 'your-name', repo: 'your-avatar-bed' }。
+ */
+const PREFILL = {
+  owner: '',
+  repo: '',
+  branch: 'main',
+  prefix: 'avatar',
+  preset: 'jsdmirror'
+};
+
+const DEFAULT_SETTINGS = {
+  owner: PREFILL.owner || '',
+  repo: PREFILL.repo || '',
+  branch: PREFILL.branch || 'main',
+  /** 仓库内目录，必须是 avatar 才兼容 Twikoo */
+  prefix: PREFILL.prefix || 'avatar',
+  /** sha256 与 Twikoo 自定义 CDN 一致；md5 仅用于 cravatar.cn */
+  algorithm: 'sha256',
+  /** CDN 预设 id，默认走国内镜像 */
+  preset: PREFILL.preset || 'jsdmirror',
+  customTemplate: '',
+  keepExtension: false,
+  overwrite: true,
+  compress: false,
+  /** 覆盖/删除后自动刷新 jsDelivr 缓存，否则 CDN 会继续返回旧头像 */
+  autoPurge: true,
+  /** 备注是否同步到 GitHub 仓库（只存本地的话，清浏览器缓存或换设备就全没了） */
+  notesEnabled: true,
+  /** 备注文件在仓库里的路径。必须放在 avatar/ 之外，否则会被图库当成头像 */
+  notesPath: '.youtiao/notes.json',
+  /** 备注放哪个仓库：留空 = 与图床同仓库（公开，邮箱会公开）；填 owner/repo 可指向私有仓库 */
+  notesRepo: '',
+  /** 用户是否已确认过「写进公开仓库 = 邮箱公开」 */
+  notesPublicAck: false,
+  concurrency: 3,
+  maxEdge: 512,
+  commitTemplate: 'avatar: {action} {hash}',
+  defaultGravatar: 'mp',
+  tokenStorage: 'local',
+  /** 本工具的已知备注映射上限 */
+  historyLimit: 20000
+};
+
+const readStorage = (storage) => {
+  try {
+    return storage;
+  } catch {
+    return null;
+  }
+};
+
+/** 读取设置（含令牌）。 */
+function loadSettings() {
+  // 先把旧版（GitAvatar 时期）的键搬过来，再读取
+  for (const storage of [readStorage(localStorage), readStorage(sessionStorage)]) {
+    migrateStorageKey(storage, SETTINGS_KEY, 'settings.v1');
+    migrateStorageKey(storage, TOKEN_KEY, 'token.v1');
+  }
+
+  const base = { ...DEFAULT_SETTINGS };
+  let stored = null;
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) stored = JSON.parse(raw);
+  } catch {
+    stored = null;
+  }
+  const settings = stored && typeof stored === 'object' ? { ...base, ...stored } : base;
+
+  // 令牌可能在任何一种 storage 里，优先 localStorage
+  let token = '';
+  try {
+    token = localStorage.getItem(TOKEN_KEY) || '';
+  } catch {
+    token = '';
+  }
+  if (!token) {
+    try {
+      token = sessionStorage.getItem(TOKEN_KEY) || '';
+    } catch {
+      token = '';
+    }
+  }
+  settings.token = token;
+  return settings;
+}
+
+/** 保存设置（令牌按 tokenStorage 落到对应 storage）。 */
+function saveSettings(settings) {
+  const { token, ...rest } = settings || {};
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(rest));
+  } catch (error) {
+    throw new Error('设置写入浏览器存储失败：' + (error && error.message ? error.message : error));
+  }
+
+  const mode = rest.tokenStorage === 'session' ? 'session' : 'local';
+  const target = readStorage(mode === 'session' ? sessionStorage : localStorage);
+  const other = readStorage(mode === 'session' ? localStorage : sessionStorage);
+  try {
+    if (other) other.removeItem(TOKEN_KEY);
+    if (target) {
+      if (token) target.setItem(TOKEN_KEY, token);
+      else target.removeItem(TOKEN_KEY);
+    }
+  } catch (error) {
+    throw new Error('令牌写入浏览器存储失败：' + (error && error.message ? error.message : error));
+  }
+  return rest;
+}
+
+/** 清空本工具写入的全部设置（不含备注历史）。 */
+function clearSettings() {
+  for (const storage of [readStorage(localStorage), readStorage(sessionStorage)]) {
+    if (!storage) continue;
+    try {
+      storage.removeItem(SETTINGS_KEY);
+      storage.removeItem(TOKEN_KEY);
+    } catch {
+      /* 忽略 */
+    }
+  }
+}
+
+/** 主题：返回 'light' | 'dark'。未设置时跟随系统。 */
+function loadTheme() {
+  migrateStorageKey(readStorage(localStorage), THEME_KEY, 'theme.v1');
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    /* 忽略 */
+  }
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function saveTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    /* 忽略 */
+  }
+}
+
+/* ================= notes.js ================= */
+/**
+ * notes.js —— 「邮箱 ↔ 哈希」备注的文档模型与本地持久化。
+ *
+ * ## 为什么要有这个文件
+ * SHA-256 不可逆，只看仓库里的文件名谁也不知道那是谁的邮箱。
+ * 所以上传时把对应关系记下来，图库才能显示邮箱、才能按邮箱搜索。
+ *
+ * ## 存储策略
+ * 备注被当成一个「文档」而不是一串记录，因为它需要支持两处存储之间的合并：
+ *   - 本地缓存（localStorage，离线可用、打开即显示）
+ *   - 远程文件（放在 GitHub 仓库里，换设备/清浏览器都不丢）
+ *
+ * 合并时最大的坑是「删除」：如果只做并集，本地删掉的备注会被远程的旧数据复活。
+ * 所以文档里除了 entries 还带一张 removed 墓碑表：
+ *   某个哈希的墓碑时间只要不早于它的记录时间，这条记录就算已删除。
+ *
+ * 本文件只做「模型 + 本地存储」，网络同步在 notes-sync.js。
+ */
+
+
+
+const NOTES_KEY = 'youtiao.notes.v1';
+/** 改名前的本地备注键（那时只存了一个数组） */
+const LEGACY_HISTORY_KEY = 'youtiao.history.v1';
+/** 改名前的旧前缀键 */
+const LEGACY_HISTORY_KEY_OLD = 'gh-avatar-bed.history.v1';
+
+/** 远程备注文件在仓库里的默认位置。放在 avatar/ 之外，避免被图库当成头像。 */
+const DEFAULT_NOTES_PATH = '.youtiao/notes.json';
+const NOTES_VERSION = 1;
+
+/* ------------------------------------------------------------------ *
+ * 文档模型（纯函数，已被单元测试覆盖）
+ * ------------------------------------------------------------------ */
+
+function emptyDoc(now = Date.now()) {
+  return { version: NOTES_VERSION, updatedAt: new Date(now).toISOString(), entries: [], removed: {} };
+}
+
+/**
+ * 把各种可能的历史形态归一化成文档。
+ * 接受：文档对象 / 记录数组（旧版 localStorage 形态）/ JSON 字符串 / null。
+ */
+function normalizeDoc(input, now = Date.now()) {
+  let raw = input;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return emptyDoc(now);
+    }
+  }
+  if (!raw) return emptyDoc(now);
+
+  const entries = Array.isArray(raw) ? raw : Array.isArray(raw.entries) ? raw.entries : [];
+  const removed = !Array.isArray(raw) && raw.removed && typeof raw.removed === 'object' ? raw.removed : {};
+
+  return {
+    version: NOTES_VERSION,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : new Date(now).toISOString(),
+    entries: entries.filter(isValidEntry).map((e) => ({ ...e })),
+    removed: Object.fromEntries(
+      Object.entries(removed)
+        .filter(([hash, ts]) => typeof hash === 'string' && hash.length > 0 && Number.isFinite(Number(ts)))
+        .map(([hash, ts]) => [hash, Number(ts)])
+    )
+  };
+}
+
+function isValidEntry(entry) {
+  return Boolean(entry && typeof entry === 'object' && entry.hash && entry.email);
+}
+
+/** 墓碑：把某个哈希标记为「已删除」，时间用于和远程旧数据比新旧。 */
+function tombstoneEntries(doc, hashes, ts = Date.now()) {
+  const base = normalizeDoc(doc);
+  const removed = { ...base.removed };
+  const set = new Set(hashes || []);
+  for (const hash of set) if (hash) removed[hash] = Math.max(removed[hash] || 0, ts);
+  return {
+    ...base,
+    removed,
+    entries: base.entries.filter((e) => !set.has(e.hash)),
+    updatedAt: new Date(ts).toISOString()
+  };
+}
+
+/** 新增或更新若干条备注（按哈希去重，新的 ts 覆盖旧的）。 */
+function upsertEntries(doc, entries, ts = Date.now(), limit = DEFAULT_SETTINGS.historyLimit) {
+  const base = normalizeDoc(doc);
+  const map = new Map(base.entries.map((e) => [e.hash, e]));
+  const removed = { ...base.removed };
+
+  for (const entry of entries || []) {
+    if (!isValidEntry(entry)) continue;
+    const prev = map.get(entry.hash) || {};
+    map.set(entry.hash, { ...prev, ...entry, ts, firstTs: prev.firstTs || ts });
+    // 重新添加等于撤销墓碑
+    delete removed[entry.hash];
+  }
+
+  const list = [...map.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, Math.max(1, limit));
+  return { version: NOTES_VERSION, updatedAt: new Date(ts).toISOString(), entries: list, removed };
+}
+
+/**
+ * 合并两份文档（本地 vs 远程）。
+ * 规则：按哈希取「时间更新」的那条记录；墓碑同理；墓碑不早于记录则记录作废。
+ */
+function mergeDocs(a, b) {
+  const left = normalizeDoc(a);
+  const right = normalizeDoc(b);
+  const entries = new Map();
+  const removed = {};
+
+  for (const doc of [left, right]) {
+    for (const entry of doc.entries) {
+      const prev = entries.get(entry.hash);
+      if (!prev || (entry.ts || 0) >= (prev.ts || 0)) entries.set(entry.hash, { ...prev, ...entry });
+    }
+    for (const [hash, ts] of Object.entries(doc.removed)) {
+      removed[hash] = Math.max(removed[hash] || 0, ts);
+    }
+  }
+
+  // 墓碑时间不早于记录时间 → 这条记录已被删除
+  const alive = [...entries.values()].filter((entry) => (removed[entry.hash] || 0) < (entry.ts || 0));
+
+  const updatedAt = [left.updatedAt, right.updatedAt].filter(Boolean).sort().pop() || new Date().toISOString();
+  return {
+    version: NOTES_VERSION,
+    updatedAt,
+    entries: alive.sort((x, y) => (y.ts || 0) - (x.ts || 0)),
+    removed
+  };
+}
+
+/** 稳定序列化：条目按 ts 倒序，便于在 GitHub 上看 diff。 */
+function serializeDoc(doc) {
+  const base = normalizeDoc(doc);
+  const removed = Object.fromEntries(Object.entries(base.removed).sort(([x], [y]) => (x < y ? -1 : 1)));
+  return (
+    JSON.stringify(
+      {
+        version: NOTES_VERSION,
+        updatedAt: base.updatedAt,
+        // 说明：这个文件由「油条」自动维护，记录了邮箱与头像文件名的对应关系
+        entries: base.entries,
+        removed
+      },
+      null,
+      2
+    ) + '\n'
+  );
+}
+
+function entriesOf(doc) {
+  return normalizeDoc(doc).entries;
+}
+
+/** 哈希/路径 → 记录 的索引，供图库标注邮箱。 */
+function notesIndex(entries) {
+  const map = new Map();
+  for (const entry of entries || []) {
+    if (!entry || !entry.hash) continue;
+    map.set(entry.hash, entry);
+    if (entry.path) map.set(entry.path, entry);
+  }
+  return map;
+}
+
+/** 用备注给图库条目补上 email 字段（哈希命中或完整路径命中都算）。 */
+function annotateFiles(files, index) {
+  return (files || []).map((file) => {
+    const hit = index.get(file.name) || index.get(file.path);
+    return hit ? { ...file, email: hit.email, note: hit.note || '' } : { ...file, email: '', note: '' };
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * 本地持久化
+ * ------------------------------------------------------------------ */
+
+function notesStorage() {
+  try {
+    return localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** 从旧版本（只存数组的 history 键）迁移一次。 */
+function migrateLegacyHistory(storage) {
+  if (!storage) return null;
+  for (const key of [LEGACY_HISTORY_KEY, LEGACY_HISTORY_KEY_OLD]) {
+    try {
+      const raw = storage.getItem(key);
+      if (raw === null) continue;
+      const doc = normalizeDoc(raw);
+      storage.removeItem(key);
+      if (doc.entries.length) return doc;
+    } catch {
+      /* 忽略 */
+    }
+  }
+  return null;
+}
+
+/** 读取本地备注文档。 */
+function loadNotesDoc() {
+  const storage = notesStorage();
+  if (!storage) return emptyDoc();
+  try {
+    const raw = storage.getItem(NOTES_KEY);
+    if (raw !== null) return normalizeDoc(raw);
+  } catch {
+    /* 落回下面的迁移/空文档 */
+  }
+  const migrated = migrateLegacyHistory(storage);
+  if (migrated) {
+    saveNotesDoc(migrated);
+    return migrated;
+  }
+  return emptyDoc();
+}
+
+/** 写入本地备注文档；配额不足时砍掉一半再试一次。 */
+function saveNotesDoc(doc, limit = DEFAULT_SETTINGS.historyLimit) {
+  const storage = notesStorage();
+  if (!storage) return doc;
+  const trimmed = {
+    ...normalizeDoc(doc),
+    entries: normalizeDoc(doc).entries.slice(0, Math.max(1, limit))
+  };
+  const text = serializeDoc(trimmed);
+  try {
+    storage.setItem(NOTES_KEY, text);
+    return trimmed;
+  } catch {
+    const half = { ...trimmed, entries: trimmed.entries.slice(0, Math.max(1, Math.floor(trimmed.entries.length / 2))) };
+    try {
+      storage.setItem(NOTES_KEY, serializeDoc(half));
+      return half;
+    } catch {
+      throw new Error('本地备注写入失败：浏览器存储已满');
+    }
+  }
+}
+
+/** 清空本地备注（含墓碑）。 */
+function clearNotes() {
+  const storage = notesStorage();
+  try {
+    storage && storage.removeItem(NOTES_KEY);
+  } catch {
+    /* 忽略 */
+  }
+  return emptyDoc();
+}
+
+/* ------------------------------------------------------------------ *
+ * 导入 / 导出
+ * ------------------------------------------------------------------ */
+
+function exportNotes() {
+  return { ...loadNotesDoc(), exportedAt: new Date().toISOString(), exportedBy: 'youtiao' };
+}
+
+function importNotes(payload, limit = DEFAULT_SETTINGS.historyLimit) {
+  const incoming = normalizeDoc(payload);
+  const before = loadNotesDoc();
+  const merged = mergeDocs(before, incoming);
+  const saved = saveNotesDoc(merged, limit);
+  return { imported: incoming.entries.length, total: saved.entries.length, doc: saved };
+}
+
+/* ================= notes-sync.js ================= */
+/**
+ * notes-sync.js —— 把备注文档同步到 GitHub 仓库。
+ *
+ * ## 为什么要同步
+ * 备注只放 localStorage 的话，清一次浏览器缓存、换一台设备就全没了，
+ * 而 SHA-256 不可逆 —— 这意味着那些头像是谁的，永远查不回来了。
+ *
+ * ## 但它默认不该直接写进图床仓库
+ * 图床仓库必须是公开的（jsDelivr 只能读公开仓库），
+ * 所以备注文件一旦放在那里，**所有评论者的邮箱就是公开可读的**。
+ * 因此备注支持两种落点：
+ *   - 同图床仓库（方便，但邮箱会公开）
+ *   - 独立的私有仓库（推荐，邮箱不外泄）
+ * 界面会在第一次写入前把这件事讲清楚，让用户自己选。
+ *
+ * ## 同步策略
+ *   - 拉取：远程文档与本地文档合并（按时间取新，墓碑优先），再写回本地
+ *   - 推送：本地文档整体写入远程；带 sha 更新，冲突时先合并再重试一次
+ *   - 时机：打开页面时拉一次；本地有改动时防抖推送
+ */
+
+
+
+
+
+/**
+ * 解析备注文件应该落在哪个仓库/哪个路径。
+ * @param {object} settings
+ * @returns {{owner:string,repo:string,branch:string,path:string,separate:boolean,error?:string}}
+ */
+function resolveNotesTarget(settings = {}) {
+  const path = String(settings.notesPath || '').trim().replace(/^\/+/, '') || DEFAULT_NOTES_PATH;
+  const raw = String(settings.notesRepo || '').trim();
+  const bedBranch = String(settings.branch || 'main').trim() || 'main';
+
+  if (!raw) {
+    return {
+      owner: String(settings.owner || '').trim(),
+      repo: String(settings.repo || '').trim(),
+      branch: bedBranch,
+      path,
+      separate: false
+    };
+  }
+
+  // 支持 owner/repo 与 owner/repo@branch
+  const [repoPart, branchPart] = raw.split('@');
+  const pieces = String(repoPart).split('/').filter(Boolean);
+  if (pieces.length !== 2) {
+    return { owner: '', repo: '', branch: bedBranch, path, separate: true, error: '备注仓库格式应为 owner/repo 或 owner/repo@branch' };
+  }
+  return {
+    owner: pieces[0],
+    repo: pieces[1],
+    branch: String(branchPart || '').trim() || bedBranch,
+    path,
+    separate: true
+  };
+}
+
+/** 备注文件是否与图床仓库同一个（用于判断「邮箱是否会公开」）。 */
+function isNotesPublicInBedRepo(settings = {}) {
+  const target = resolveNotesTarget(settings);
+  return !target.separate;
+}
+
+const NOTES_COMMIT_MESSAGE = 'chore(notes): 更新头像邮箱备注';
+
+class NotesSync {
+  /**
+   * @param {{
+   *   getSettings: () => object,
+   *   createClient?: (target:object, settings:object) => object,
+   *   onApplied?: (doc:object, info:object) => void,
+   *   onStatus?: (status:object) => void,
+   *   debounceMs?: number
+   * }} options
+   */
+  constructor(options = {}) {
+    this.getSettings = options.getSettings || (() => ({}));
+    this.createClient =
+      options.createClient ||
+      ((target, settings) =>
+        new GitHubClient({
+          token: settings.token,
+          owner: target.owner,
+          repo: target.repo,
+          branch: target.branch
+        }));
+    this.onApplied = options.onApplied || (() => {});
+    this.onStatus = options.onStatus || (() => {});
+    this.debounceMs = Number.isFinite(options.debounceMs) ? options.debounceMs : 2500;
+
+    this.state = 'idle';
+    this.error = '';
+    this.lastSyncAt = 0;
+    this.count = 0;
+    this.pulledAt = 0;
+
+    this._sha = null;
+    this._timer = null;
+    this._inflight = null;
+  }
+
+  get enabled() {
+    const settings = this.getSettings();
+    if (settings.notesEnabled === false) return false;
+    const target = resolveNotesTarget(settings);
+    return Boolean(settings.token && target.owner && target.repo && !target.error);
+  }
+
+  _setState(state, error = '') {
+    this.state = state;
+    this.error = error;
+    try {
+      this.onStatus({ state, error, lastSyncAt: this.lastSyncAt, count: this.count });
+    } catch {
+      /* 状态回调里的异常不该影响同步 */
+    }
+  }
+
+  /** 读取备注文件（不存在返回 null）。 */
+  async pull({ force = false } = {}) {
+    if (!this.enabled) {
+      this._setState('off');
+      return { pulled: false, reason: 'disabled' };
+    }
+    // 短时间内重复调用直接复用上一次结果，避免每次刷新列表都打一次 API
+    if (!force && this.pulledAt && Date.now() - this.pulledAt < 30000) {
+      return { pulled: false, reason: 'fresh' };
+    }
+
+    const target = resolveNotesTarget(this.getSettings());
+    const client = this.createClient(target, this.getSettings());
+    this._setState('pulling');
+
+    try {
+      const remote = await client.getFileText(target.path);
+      if (!remote) {
+        this.pulledAt = Date.now();
+        this._setState('idle');
+        return { pulled: true, remoteExists: false, entries: 0 };
+      }
+
+      const local = loadNotesDoc();
+      const merged = mergeDocs(local, normalizeDoc(remote.text));
+      const changed = JSON.stringify(normalizeDoc(local).entries) !== JSON.stringify(merged.entries);
+
+      saveNotesDoc(merged);
+      this._sha = remote.sha;
+      this.pulledAt = Date.now();
+      this.count = merged.entries.length;
+      this._setState('idle');
+      this.onApplied(merged, { source: 'remote', changed, remoteEntries: normalizeDoc(remote.text).entries.length });
+      return { pulled: true, remoteExists: true, entries: merged.entries.length, changed };
+    } catch (error) {
+      this._setState('error', error.message);
+      return { pulled: false, error };
+    }
+  }
+
+  /** 把本地文档推到远程。 */
+  async push({ force = false } = {}) {
+    if (!this.enabled) {
+      this._setState('off');
+      return { pushed: false, reason: 'disabled' };
+    }
+    if (this._inflight) return this._inflight;
+
+    this._inflight = (async () => {
+      const settings = this.getSettings();
+      const target = resolveNotesTarget(settings);
+      const client = this.createClient(target, settings);
+      this._setState('pushing');
+
+      const write = async (doc, sha) => {
+        const message = `${NOTES_COMMIT_MESSAGE}（${doc.entries.length} 条）`;
+        const result = await client.putFile(target.path, textToBase64(serializeDoc(doc)), {
+          message,
+          sha,
+          overwrite: true
+        });
+        return result;
+      };
+
+      try {
+        // 还不知道远程 sha 时先看一眼：既避免 422，也顺手合并别的设备的改动
+        if (this._sha === null) {
+          const remote = await client.getFileText(target.path);
+          if (remote) {
+            this._sha = remote.sha;
+            if (!force) {
+              const merged = mergeDocs(loadNotesDoc(), normalizeDoc(remote.text));
+              saveNotesDoc(merged);
+              this.onApplied(merged, { source: 'remote', changed: true });
+            }
+          }
+        }
+
+        const doc = loadNotesDoc();
+        const result = await write(doc, this._sha || undefined);
+        this._sha = result.sha || this._sha;
+        this.lastSyncAt = Date.now();
+        this.count = doc.entries.length;
+        this._setState('idle');
+        return { pushed: true, skipped: Boolean(result.skipped), path: target.path, entries: doc.entries.length };
+      } catch (error) {
+        // 冲突：多半是别的设备刚改过。合并一次再重试。
+        const conflict =
+          error instanceof GitHubError &&
+          (error.status === 409 || (error.status === 422 && /sha/i.test(String((error.body && error.body.message) || ''))));
+        if (conflict) {
+          try {
+            const remote = await client.getFileText(target.path);
+            this._sha = remote ? remote.sha : null;
+            const merged = remote ? mergeDocs(loadNotesDoc(), normalizeDoc(remote.text)) : loadNotesDoc();
+            saveNotesDoc(merged);
+            this.onApplied(merged, { source: 'remote', changed: true });
+
+            const retryDoc = loadNotesDoc();
+            const retry = await write(retryDoc, this._sha || undefined);
+            this._sha = retry.sha || this._sha;
+            this.lastSyncAt = Date.now();
+            this.count = retryDoc.entries.length;
+            this._setState('idle');
+            return { pushed: true, mergedConflict: true, entries: retryDoc.entries.length };
+          } catch (retryError) {
+            this._setState('error', retryError.message);
+            return { pushed: false, error: retryError };
+          }
+        }
+        this._setState('error', error.message);
+        return { pushed: false, error };
+      } finally {
+        this._inflight = null;
+      }
+    })();
+
+    return this._inflight;
+  }
+
+  /** 本地改动后调用：防抖推送。 */
+  schedule() {
+    if (!this.enabled) return;
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      this.push().catch(() => {});
+    }, this.debounceMs);
+  }
+
+  /** 立即推送（用于「立即同步」按钮或页面关闭前）。 */
+  async flush() {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+    return this.push();
+  }
+
+  /** 拉取并合并（用于「立即拉取」按钮）。 */
+  async refresh() {
+    return this.pull({ force: true });
+  }
+
+  /** 换仓库/换路径后调用：清掉缓存的 sha，避免用错的 sha 去写。 */
+  reset() {
+    this._sha = null;
+    this.pulledAt = 0;
+    this._setState('idle');
+  }
+
+  cancel() {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+  }
+}
+
+/* ================= image.js ================= */
+/**
+ * image.js —— 浏览器端图片读取与可选压缩。
+ *
+ * 默认不处理图片（原样提交），只有用户显式勾选「压缩 / 转 WebP」才会走 canvas 重编码。
+ * 这符合需求：图床只负责「邮箱 → SHA-256 → 存进 GitHub」。
+ */
+
+/** 是否像一张图片。 */
+function isImageFile(file) {
+  if (!file) return false;
+  if (file.type && file.type.startsWith('image/')) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg|avif|ico|tiff?|heic|heif)$/i.test(file.name || '');
+}
+
+/** File → base64（不带 data: 前缀），用 FileReader 以免大图撑爆内存字符串。 */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      resolve(comma === -1 ? result : result.slice(comma + 1));
+    };
+    reader.onerror = () => reject(new Error(`读取文件失败：${file && file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** File → ArrayBuffer。 */
+function fileToArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(`读取文件失败：${file && file.name}`));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/** 加载成 HTMLImageElement（用于压缩与尺寸探测）。 */
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error(`无法解析图片：${file && file.name}`));
+    };
+    img.src = url;
+  });
+}
+
+/** 计算缩放后的尺寸（只缩不放）。 */
+function fitSize(width, height, maxEdge) {
+  const edge = Math.max(1, Number(maxEdge) || 0);
+  if (!edge || (width <= edge && height <= edge)) return { width, height, scaled: false };
+  const ratio = width >= height ? edge / width : edge / height;
+  return {
+    width: Math.max(1, Math.round(width * ratio)),
+    height: Math.max(1, Math.round(height * ratio)),
+    scaled: true
+  };
+}
+
+/**
+ * 可选压缩：等比缩放到 maxEdge，并按需转成 webp / jpeg / png。
+ * @param {File} file
+ * @param {{maxEdge?:number, format?:'original'|'webp'|'jpeg'|'png', quality?:number}} options
+ * @returns {Promise<{blob:Blob, width:number, height:number, type:string, scaled:boolean}>}
+ */
+async function compressImage(file, options = {}) {
+  const maxEdge = Number(options.maxEdge) || 512;
+  const quality = Math.min(1, Math.max(0.1, Number(options.quality) || 0.9));
+  let format = options.format || 'original';
+
+  const img = await loadImage(file);
+  const { width, height, scaled } = fitSize(img.naturalWidth, img.naturalHeight, maxEdge);
+
+  // SVG / GIF（动图）交给浏览器直接处理没有意义，原样返回
+  if (/svg|gif/i.test(file.type || '')) {
+    return { blob: file, width: img.naturalWidth, height: img.naturalHeight, type: file.type, scaled: false, passthrough: true };
+  }
+
+  if (format === 'original') {
+    const ext = (file.type && file.type.split('/')[1]) || '';
+    if (ext === 'jpeg' || ext === 'jpg') format = 'jpeg';
+    else if (ext === 'webp') format = 'webp';
+    else format = 'png';
+  }
+
+  if (!scaled && format === 'original') {
+    return { blob: file, width: img.naturalWidth, height: img.naturalHeight, type: file.type, scaled: false, passthrough: true };
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('当前浏览器不支持 Canvas，无法压缩图片');
+  // JPEG 没有透明通道，先铺白底，避免透明区域变黑
+  if (format === 'jpeg') {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const mime = `image/${format}`;
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
+  if (!blob) throw new Error('图片压缩失败（canvas.toBlob 返回空）');
+
+  return { blob, width, height, type: mime, scaled, passthrough: false };
+}
+
+/** Blob → base64。 */
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      resolve(comma === -1 ? result : result.slice(comma + 1));
+    };
+    reader.onerror = () => reject(new Error('读取压缩结果失败'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** 下载一个 URL（用于「下载原图」，走 CDN 拿到 blob 再存盘）。 */
+async function downloadUrl(url, fileName) {
+  const response = await fetch(url, { mode: 'cors' });
+  if (!response.ok) throw new Error(`下载失败：HTTP ${response.status}`);
+  const blob = await response.blob();
+  triggerDownload(blob, fileName);
+}
+
+/** 触发浏览器下载。 */
+function triggerDownload(blobOrText, fileName, mime = 'application/octet-stream') {
+  const blob = blobOrText instanceof Blob ? blobOrText : new Blob([blobOrText], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/** 由 base64 还原成可下载的 Blob（用于「下载仓库里的原图」）。 */
+function base64ToBlob(base64, type = 'application/octet-stream') {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+/** 用图片内容的魔数猜 MIME —— 无扩展名文件在有的浏览器里会下载成 .bin。 */
+function sniffImageType(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  const startsWith = (...sig) => sig.every((v, i) => b[i] === v);
+  if (startsWith(0x89, 0x50, 0x4e, 0x47)) return { mime: 'image/png', ext: 'png' };
+  if (startsWith(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (startsWith(0x47, 0x49, 0x46, 0x38)) return { mime: 'image/gif', ext: 'gif' };
+  if (startsWith(0x52, 0x49, 0x46, 0x46) && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+    return { mime: 'image/webp', ext: 'webp' };
+  }
+  if (startsWith(0x42, 0x4d)) return { mime: 'image/bmp', ext: 'bmp' };
+  if (startsWith(0x00, 0x00, 0x01, 0x00)) return { mime: 'image/x-icon', ext: 'ico' };
+  const head = new TextDecoder().decode(b.slice(0, 200)).trim().toLowerCase();
+  if (head.startsWith('<svg') || head.startsWith('<?xml')) return { mime: 'image/svg+xml', ext: 'svg' };
+  return { mime: 'application/octet-stream', ext: 'bin' };
+}
+
+/* ================= ui.js ================= */
+/**
+ * ui.js —— 通用 DOM 助手：toast、确认框、输入框弹窗、剪贴板、灯箱、主题。
+ * 这里只放与业务无关的能力，业务逻辑在 app.js。
+ */
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+/* ------------------------------- toast ------------------------------- */
+
+const TOAST_ICONS = { info: 'ℹ️', ok: '✅', err: '⛔', warn: '⚠️' };
+
+/**
+ * 右下角提示。
+ * @param {string} message
+ * @param {'info'|'ok'|'err'|'warn'} [type]
+ * @param {number} [timeout] 毫秒，传 0 表示不自动关闭
+ */
+function toast(message, type = 'info', timeout = 3800) {
+  const container = $('#toasts');
+  if (!container) return null;
+  const node = document.createElement('div');
+  node.className = `toast ${type}`;
+  node.textContent = `${TOAST_ICONS[type] || ''} ${message}`.trim();
+  container.appendChild(node);
+
+  const remove = () => {
+    node.style.opacity = '0';
+    node.style.transform = 'translateX(16px)';
+    node.style.transition = 'opacity .18s, transform .18s';
+    setTimeout(() => node.remove(), 200);
+  };
+  node.addEventListener('click', remove);
+  if (timeout > 0) setTimeout(remove, timeout);
+  return node;
+}
+
+/* ------------------------------ 对话框 ------------------------------ */
+
+/**
+ * 确认框。
+ * @param {{title?:string, html?:string, text?:string, confirmText?:string, cancelText?:string, danger?:boolean}} options
+ * @returns {Promise<boolean>}
+ */
+function confirmDialog(options = {}) {
+  const dialog = $('#modal');
+  const body = $('#modalBody');
+  const confirmBtn = $('#modalConfirm');
+  const cancelBtn = $('#modalCancel');
+
+  $('#modalTitle').textContent = options.title || '请确认';
+  body.innerHTML = options.html || `<p>${escapeText(options.text || '确定继续吗？')}</p>`;
+  confirmBtn.textContent = options.confirmText || '确定';
+  confirmBtn.className = options.danger ? 'danger' : 'primary';
+  confirmBtn.hidden = false;
+  cancelBtn.textContent = options.cancelText || '取消';
+  cancelBtn.hidden = false;
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      resolve(dialog.returnValue === 'confirm');
+    };
+    dialog.addEventListener('close', onClose);
+    dialog.returnValue = '';
+    dialog.showModal();
+  });
+}
+
+/**
+ * 单行输入弹窗。
+ * @returns {Promise<string|null>} 取消时返回 null
+ */
+function promptDialog(options = {}) {
+  const dialog = $('#modal');
+  const body = $('#modalBody');
+  const confirmBtn = $('#modalConfirm');
+  const cancelBtn = $('#modalCancel');
+
+  $('#modalTitle').textContent = options.title || '请输入';
+  body.innerHTML = `
+    <label class="field">
+      <span>${escapeText(options.label || '')}</span>
+      <input id="modalInput" type="${options.type || 'text'}" value="${escapeAttr(options.value || '')}"
+             placeholder="${escapeAttr(options.placeholder || '')}" autocomplete="off" spellcheck="false">
+      ${options.help ? `<small class="muted">${escapeText(options.help)}</small>` : ''}
+    </label>`;
+  confirmBtn.textContent = options.confirmText || '确定';
+  confirmBtn.className = 'primary';
+  confirmBtn.hidden = false;
+  cancelBtn.textContent = '取消';
+  cancelBtn.hidden = false;
+
+  const input = $('#modalInput', body);
+  setTimeout(() => input && input.focus(), 30);
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      resolve(dialog.returnValue === 'confirm' ? input.value : null);
+    };
+    dialog.addEventListener('close', onClose);
+    dialog.returnValue = '';
+    dialog.showModal();
+  });
+}
+
+/**
+ * 单选对话框（比 confirmDialog 多几个选项时用）。
+ * @param {{title?:string, html?:string, options:Array<{label:string, value:string, description?:string, primary?:boolean, danger?:boolean}>}} config
+ * @returns {Promise<string|null>} 用户选中的 value；按 Esc / 关闭则返回 null
+ */
+function choiceDialog(config = {}) {
+  const dialog = $('#modal');
+  const body = $('#modalBody');
+  const confirmBtn = $('#modalConfirm');
+  const cancelBtn = $('#modalCancel');
+
+  $('#modalTitle').textContent = config.title || '请选择';
+  const buttons = (config.options || [])
+    .map(
+      (option) => `
+      <button type="button" class="choice ${option.primary ? 'primary' : ''} ${option.danger ? 'danger' : ''}"
+              data-choice="${escapeAttr(option.value)}">
+        <strong>${escapeText(option.label)}</strong>
+        ${option.description ? `<small>${escapeText(option.description)}</small>` : ''}
+      </button>`
+    )
+    .join('');
+  body.innerHTML = `${config.html || ''}<div class="choice-list">${buttons}</div>`;
+
+  // 这个对话框自己带按钮，隐藏通用的确认/取消
+  confirmBtn.hidden = true;
+  cancelBtn.hidden = true;
+
+  return new Promise((resolve) => {
+    const onClick = (event) => {
+      const btn = event.target.closest('[data-choice]');
+      if (!btn) return;
+      dialog.returnValue = btn.dataset.choice;
+      dialog.close();
+    };
+    const onClose = () => {
+      body.removeEventListener('click', onClick);
+      dialog.removeEventListener('close', onClose);
+      confirmBtn.hidden = false;
+      cancelBtn.hidden = false;
+      resolve(dialog.returnValue || null);
+    };
+    body.addEventListener('click', onClick);
+    dialog.addEventListener('close', onClose);
+    dialog.returnValue = '';
+    dialog.showModal();
+  });
+}
+
+/**
+ * 只读提示框（只有「知道了」一个按钮）。
+ * 适合用来解释「为什么不能这么做、那应该怎么办」这类不需要用户抉择的信息。
+ * @returns {Promise<void>}
+ */
+function noticeDialog(options = {}) {
+  const dialog = $('#modal');
+  const body = $('#modalBody');
+  const confirmBtn = $('#modalConfirm');
+  const cancelBtn = $('#modalCancel');
+
+  $('#modalTitle').textContent = options.title || '提示';
+  body.innerHTML = options.html || `<p>${escapeText(options.text || '')}</p>`;
+  confirmBtn.textContent = options.okText || '知道了';
+  confirmBtn.className = 'primary';
+  confirmBtn.hidden = false;
+  cancelBtn.hidden = true;
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      dialog.removeEventListener('close', onClose);
+      resolve();
+    };
+    dialog.addEventListener('close', onClose);
+    dialog.returnValue = '';
+    dialog.showModal();
+  });
+}
+
+/* ------------------------------ 剪贴板 ------------------------------ */
+
+/** 复制文本，失败时回退到 execCommand。 */
+async function copyText(text) {
+  const value = String(text == null ? '' : text);
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    /* 落到下面的兜底 */
+  }
+  try {
+    const area = document.createElement('textarea');
+    area.value = value;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 复制并提示。 */
+async function copyWithToast(text, label = '已复制') {
+  const ok = await copyText(text);
+  toast(ok ? `${label}：${String(text).slice(0, 60)}${String(text).length > 60 ? '…' : ''}` : '复制失败，请手动选中复制', ok ? 'ok' : 'err');
+  return ok;
+}
+
+/* ------------------------------- 灯箱 ------------------------------- */
+
+function openLightbox(src, caption = '') {
+  const lightbox = $('#lightbox');
+  const img = $('#lightboxImg');
+  $('#lightboxCaption').textContent = caption;
+  img.src = src;
+  if (typeof lightbox.showModal === 'function') lightbox.showModal();
+  else window.open(src, '_blank');
+}
+
+/* ------------------------------- 主题 ------------------------------- */
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+}
+
+function toggleTheme(theme) {
+  return theme === 'dark' ? 'light' : 'dark';
+}
+
+/* ------------------------------ 小工具 ------------------------------ */
+
+/** 输入框防抖。 */
+function debounce(fn, ms = 200) {
+  let timer = 0;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+/** 按钮进入/退出忙碌态。 */
+function setBusy(button, busy, busyText = '处理中…') {
+  if (!button) return;
+  if (busy) {
+    if (!button.dataset.label) button.dataset.label = button.textContent;
+    button.textContent = busyText;
+    button.disabled = true;
+  } else {
+    if (button.dataset.label) button.textContent = button.dataset.label;
+    button.disabled = false;
+  }
+}
+
+function escapeText(value) {
+  return String(value == null ? '' : value);
+}
+
+function escapeAttr(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/** 切换标签页。 */
+function activateTab(name) {
+  $$('#tabs .tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === name));
+  $$('.panel').forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${name}`));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ================= app.js ================= */
+/**
+ * app.js —— 油条 主应用。
+ *
+ * 架构：完全静态的零后端单页应用。
+ *   - 逻辑层：hash / paths / cdn / github / format（纯函数，已被 node --test 覆盖）
+ *   - 状态层：config（设置）、history（邮箱↔哈希本地备注）
+ *   - 视图层：本文件 + ui.js
+ *
+ * 所有网络请求都从用户自己的浏览器直连 api.github.com 与 jsDelivr，不经过任何中间服务器。
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+/* ==================================================================== *
+ * 状态
+ * ==================================================================== */
+
+const state = {
+  settings: loadSettings(),
+  client: null,
+  repo: null,
+  /** 仓库中本目录下的全部文件（带 email 备注） */
+  files: [],
+  /** 过滤 + 排序后的结果 */
+  view: [],
+  selection: new Set(),
+  page: 1,
+  pageSize: 60,
+  search: '',
+  sort: 'name',
+  queue: [],
+  links: [],
+  busy: false,
+  logLines: []
+};
+
+const MAX_LOG_LINES = 600;
+
+/* ==================================================================== *
+ * 小工具
+ * ==================================================================== */
+
+const cdnConfig = () => ({
+  owner: state.settings.owner,
+  repo: state.settings.repo,
+  branch: state.settings.branch,
+  prefix: state.settings.prefix,
+  preset: state.settings.preset,
+  customTemplate: state.settings.customTemplate
+});
+
+function commitMessage(action, ctx = {}) {
+  const tpl = state.settings.commitTemplate || 'avatar: {action} {hash}';
+  return tpl
+    .replace(/\{action\}/g, action)
+    .replace(/\{hash\}/g, ctx.hash || '')
+    .replace(/\{path\}/g, ctx.path || '')
+    .replace(/\{email\}/g, ctx.email || '');
+}
+
+/** 把 base64 内容按魔数还原成 Blob（下载仓库原图时用）。 */
+function blobFromBase64(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const { mime, ext } = sniffImageType(bytes);
+  return { blob: base64ToBlob(base64, mime), mime, ext };
+}
+
+function pushLog(line) {
+  const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  state.logLines.push(`[${stamp}] ${line}`);
+  if (state.logLines.length > MAX_LOG_LINES) state.logLines.splice(0, state.logLines.length - MAX_LOG_LINES);
+
+  const box = $('#uploadLog');
+  if (box) {
+    box.hidden = false;
+    const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
+    box.textContent = state.logLines.join('\n');
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+}
+
+function existingFileByPath(path) {
+  return state.files.find((f) => f.path === path) || null;
+}
+
+function setConnectionChip(text, kind = '') {
+  const chip = $('#connChip');
+  chip.textContent = text;
+  chip.className = `chip chip-btn ${kind}`;
+}
+
+function renderRateChip() {
+  const chip = $('#rateChip');
+  const rl = state.client && state.client.lastRateLimit;
+  if (!rl || !Number.isFinite(rl.remaining)) {
+    chip.hidden = true;
+    return;
+  }
+  chip.hidden = false;
+  const limit = rl.limit || '?';
+  chip.textContent = `API 余量 ${rl.remaining}/${limit}`;
+  chip.className = `chip ${rl.remaining < 50 ? 'chip-warn' : ''}`;
+  // 悬停时把「这是什么、什么时候恢复」讲清楚，避免只看到一个孤立数字
+  const resetText = rl.reset ? `，额度将在 ${new Date(rl.reset).toLocaleString('zh-CN')} 重置` : '';
+  chip.title =
+    `GitHub API 每小时调用额度，剩余 ${rl.remaining}/${limit}${resetText}。\n` +
+    '列文件、上传、删除、同步备注都会消耗它；访客加载头像是走 jsDelivr，不消耗这个额度。';
+}
+
+function settingsReady() {
+  const s = state.settings;
+  return Boolean(s.token && s.owner && s.repo);
+}
+
+/* ------------------------------------------------------------------ *
+ * CDN 缓存刷新
+ *
+ * jsDelivr 会长时间缓存文件（最长 7 天）。头像被覆盖后如果不清缓存，
+ * 评论者看到的仍是旧头像——这是头像图床最容易踩的坑，所以覆盖/删除后默认自动 purge。
+ * ------------------------------------------------------------------ */
+
+async function purgePaths(paths, { silent = false } = {}) {
+  const list = [...new Set((paths || []).filter(Boolean))];
+  if (!list.length) return { ok: 0, fail: 0 };
+
+  const cfg = cdnConfig();
+  const support = purgeSupport(cfg);
+  if (!support.supported) {
+    if (!silent) {
+      await noticeDialog({
+        title: '这条线路刷新不了缓存',
+        html:
+          `<p>${escapeHtml(support.reason)}</p>` +
+          `<p><strong>那怎么办：</strong></p>` +
+          `<p>${escapeHtml(support.workaround).replace(/\n/g, '<br>')}</p>`
+      });
+    }
+    return { ok: 0, fail: 0, unsupported: true };
+  }
+
+  const urls = list.map((p) => buildPurgeUrl(cfg, p)).filter(Boolean);
+  const results = await mapLimit(urls, 2, async (url) => {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json().catch(() => ({}));
+  });
+
+  const ok = results.filter((r) => r.ok).length;
+  const fail = results.length - ok;
+  pushLog(`[缓存] 刷新 ${ok} 个文件${fail ? `，失败 ${fail} 个` : ''}`);
+  if (!silent) {
+    if (!fail) toast(`已刷新 ${ok} 个文件的 CDN 缓存`, 'ok');
+    else toast(`缓存刷新：成功 ${ok} · 失败 ${fail}`, 'warn', 6000);
+  }
+  return { ok, fail };
+}
+
+/** 每个会话只提醒一次「当前线路刷新不了缓存」，避免每次上传都弹。 */
+let purgeUnsupportedWarned = false;
+
+/** 覆盖或删除后静默刷新缓存（按设置项决定是否执行）。 */
+function autoPurge(paths) {
+  if (state.settings.autoPurge === false) return;
+
+  const support = purgeSupport(cdnConfig());
+  if (!support.supported) {
+    if (!purgeUnsupportedWarned) {
+      purgeUnsupportedWarned = true;
+      const label = getPreset(state.settings.preset).label;
+      pushLog(`[缓存] 当前线路（${label}）不支持 purge，覆盖后要等缓存过期才会更新`);
+      toast(
+        `注意：${label} 刷新不了缓存，覆盖头像后不会立即生效（最长约 24 小时）。点图库里的「刷缓存」可以看到替代方案。`,
+        'warn',
+        9000
+      );
+    }
+    return;
+  }
+
+  purgePaths(paths, { silent: true }).catch(() => {
+    /* 缓存刷新失败不该影响主流程 */
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * 备注同步（本地缓存 + GitHub 仓库）
+ *
+ * 备注就是「邮箱 ↔ 哈希」的对应关系。SHA-256 不可逆，备注一丢，
+ * 那些头像是谁的邮箱就永远查不回来了 —— 所以不该只存在浏览器里。
+ *
+ * 但这里有一个隐私上的反转必须讲清楚：图床仓库必须是公开的（jsDelivr 只能读公开仓库），
+ * 备注一旦写进同一个仓库，所有评论者的邮箱就是公开可读的。
+ * 因此第一次写入前会让用户明确选一次，并推荐放进一个独立的私有仓库。
+ * ------------------------------------------------------------------ */
+
+let notesSync = null;
+
+function initNotesSync() {
+  notesSync = new NotesSync({
+    getSettings: () => state.settings,
+    onApplied: (doc, info) => {
+      if (info && info.changed) {
+        // 远程带来的新备注：重新标注图库里的邮箱
+        const index = notesIndex(entriesOf(doc));
+        state.files = annotateFiles(state.files, index);
+        applyFilters({ keepPage: true });
+        renderGallery();
+      }
+      renderNotesStatus();
+    },
+    onStatus: () => renderNotesStatus()
+  });
+  return notesSync;
+}
+
+function syncNotesSoon() {
+  if (!notesSync || !notesSync.enabled) {
+    renderNotesStatus();
+    return;
+  }
+  ensureNotesConsent()
+    .then((allowed) => {
+      if (allowed) notesSync.schedule();
+    })
+    .catch(() => {});
+}
+
+/**
+ * 第一次写备注前，把「邮箱会不会公开」这件事讲清楚。
+ * @returns {Promise<boolean>} 是否允许写入远程
+ */
+async function ensureNotesConsent() {
+  const settings = state.settings;
+  if (settings.notesEnabled === false) return false;
+  if (settings.notesPublicAck) return true;
+
+  // 已经单独指定了备注仓库（通常是私有仓库）→ 用户显然清楚自己在做什么
+  if (String(settings.notesRepo || '').trim()) {
+    persist({ notesPublicAck: true });
+    return true;
+  }
+
+  const choice = await choiceDialog({
+    title: '备注要存到哪里？',
+    html: `
+      <p>备注是「邮箱 ↔ 哈希」的对应关系。<strong>SHA-256 不可逆</strong>，备注一丢，就再也没法知道某个头像是谁的邮箱了，
+         所以不建议只放在浏览器里。</p>
+      <p>但要注意：图床仓库<strong>必须是公开的</strong>（jsDelivr 只能读公开仓库），
+         备注写进那里 = <strong>所有评论者的邮箱都会公开可读</strong>。</p>`,
+    options: [
+      {
+        label: '放进一个独立的私有仓库（推荐）',
+        value: 'private',
+        primary: true,
+        description: '备注能跨设备保留，邮箱又不外泄。可以直接帮你创建一个私有仓库。'
+      },
+      {
+        label: '就写进图床仓库，我知道邮箱会公开',
+        value: 'public',
+        description: '最省事，但仓库是公开的，任何人都能下载这个文件看到邮箱。'
+      },
+      {
+        label: '只存本地，不同步',
+        value: 'local',
+        description: '邮箱不外泄，但清一次浏览器缓存或换台设备，备注就没了。'
+      }
+    ]
+  });
+
+  if (choice === 'private') {
+    const name = await promptDialog({
+      title: '新建私有备注仓库',
+      label: '仓库名',
+      value: 'youtiao-notes',
+      help: '会在你的账号下创建一个私有仓库，备注只写在那里。',
+      confirmText: '创建并使用'
+    });
+    if (name === null) return false;
+    const repoName = name.trim() || 'youtiao-notes';
+    try {
+      rebuildClient();
+      const user = await state.client.getUser();
+      await state.client.createRepo({
+        name: repoName,
+        isPrivate: true,
+        description: '油条 · 头像邮箱备注（私有）',
+        autoInit: true
+      });
+      persist({ notesRepo: `${user.login}/${repoName}`, notesPublicAck: true });
+      fillSettingsForm();
+      notesSync.reset();
+      toast(`私有备注仓库 ${user.login}/${repoName} 已创建，备注将同步到那里`, 'ok', 6000);
+      return true;
+    } catch (error) {
+      toast(`创建私有仓库失败：${error.message}`, 'err', 8000);
+      return false;
+    }
+  }
+
+  if (choice === 'public') {
+    persist({ notesPublicAck: true, notesEnabled: true });
+    renderNotesStatus();
+    return true;
+  }
+
+  // 选择「只存本地」或直接关掉对话框
+  persist({ notesEnabled: false });
+  fillSettingsForm();
+  renderNotesStatus();
+  toast('备注将只保存在本浏览器里', 'warn', 5000);
+  return false;
+}
+
+function renderNotesStatus() {
+  const box = $('#notesStatus');
+  if (!box) return;
+
+  const count = entriesOf(loadNotesDoc()).length;
+  const target = resolveNotesTarget(state.settings);
+  const set = (cls, text) => {
+    box.className = `notes-status ${cls}`;
+    box.innerHTML = `<span class="dot"></span><span>${escapeHtml(text)}</span>`;
+  };
+
+  if (state.settings.notesEnabled === false) {
+    set('', `仅本地：${count} 条备注（未同步；清缓存或换设备会丢失）`);
+    return;
+  }
+  if (!settingsReady()) {
+    set('', `本地 ${count} 条备注；配置好令牌与仓库后即可同步`);
+    return;
+  }
+  if (target.error) {
+    set('err', `备注仓库配置有误：${target.error}`);
+    return;
+  }
+
+  // 备注与图床同仓库 = 写进一个必须公开的仓库 = 邮箱会公开
+  const exposed = isNotesPublicInBedRepo(state.settings);
+  const where = target.separate
+    ? `独立仓库 ${target.owner}/${target.repo}@${target.branch}`
+    : `图床仓库 ${target.owner}/${target.repo}${exposed ? '（公开，邮箱会公开）' : ''}`;
+
+  if (notesSync && notesSync.state === 'error') {
+    set('err', `同步失败：${notesSync.error}`);
+    return;
+  }
+  if (notesSync && (notesSync.state === 'pushing' || notesSync.state === 'pulling')) {
+    set('busy', notesSync.state === 'pushing' ? '正在同步备注…' : '正在拉取备注…');
+    return;
+  }
+  if (notesSync && notesSync.lastSyncAt) {
+    set('ok', `已同步 ${count} 条备注到 ${where} · ${fmtDateTime(notesSync.lastSyncAt)}`);
+    return;
+  }
+  set('', `本地 ${count} 条备注；尚未同步到 ${where}`);
+}
+
+/* ==================================================================== *
+ * 启动
+ * ==================================================================== */
+
+function init() {
+  applyTheme(loadTheme());
+  state.settings = loadSettings();
+  initNotesSync();
+
+  bindTabs();
+  bindSettings();
+  bindUpload();
+  bindGallery();
+  bindCdn();
+  fillPresetSelects();
+  fillSettingsForm();
+  renderEmailPreview();
+  renderCdnPanel();
+  renderNotesStatus();
+  renderGallery();
+
+  if (settingsReady()) {
+    connect({ silent: true });
+  } else {
+    setConnectionChip('未配置仓库');
+  }
+}
+
+function bindTabs() {
+  $('#tabs').addEventListener('click', (event) => {
+    const btn = event.target.closest('.tab');
+    if (btn) activateTab(btn.dataset.tab);
+  });
+
+  $('#themeToggle').addEventListener('click', () => {
+    const next = toggleTheme(loadTheme());
+    applyTheme(next);
+    saveTheme(next);
+  });
+
+  $('#connChip').addEventListener('click', () => {
+    if (!settingsReady()) {
+      activateTab('settings');
+      toast('先在设置页填写令牌与仓库信息', 'warn');
+      return;
+    }
+    connect({ silent: false });
+  });
+
+  // 弹窗里的输入框：回车直接确认
+  $('#modalBody').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.id === 'modalInput') {
+      event.preventDefault();
+      $('#modalConfirm').click();
+    }
+  });
+
+  // 复制按钮（静态声明式）
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-copy-target]');
+    if (!btn) return;
+    const target = document.getElementById(btn.dataset.copyTarget);
+    if (target) copyWithToast(target.textContent.trim());
+  });
+}
+
+/* ==================================================================== *
+ * 连接
+ * ==================================================================== */
+
+function rebuildClient() {
+  state.client = new GitHubClient({
+    token: state.settings.token,
+    owner: state.settings.owner,
+    repo: state.settings.repo,
+    branch: state.settings.branch
+  });
+  return state.client;
+}
+
+async function connect({ silent = false } = {}) {
+  if (!settingsReady()) {
+    toast('请先填写令牌、仓库所有者与仓库名', 'warn');
+    setConnectionChip('未配置仓库');
+    return null;
+  }
+  rebuildClient();
+  setConnectionChip('连接中…');
+  try {
+    const repo = await state.client.getRepo();
+    state.repo = repo;
+    setConnectionChip(`已连接 ${repo.full_name}`, 'chip-ok');
+    renderRateChip();
+    renderRepoInfo(repo);
+    if (!silent) toast(`连接成功：${repo.full_name}（${repo.private ? '私有' : '公开'}）`, 'ok');
+    if (repo.private) toast('该仓库是私有的，jsDelivr 无法读取，请改为公开仓库', 'warn', 6000);
+    await loadGallery({ silent: true });
+    return repo;
+  } catch (error) {
+    setConnectionChip('连接失败', 'chip-err');
+    if (!silent) toast(error.message, 'err', 7000);
+    renderRepoInfoError(error);
+    return null;
+  }
+}
+
+function renderRepoInfo(repo) {
+  const box = $('#repoInfo');
+  box.hidden = false;
+  box.className = 'info-box';
+  const push = repo.permissions ? repo.permissions.push : undefined;
+  box.innerHTML = `
+    <div><strong>${escapeHtml(repo.full_name)}</strong> ${repo.private ? '<span class="warn">（私有仓库，jsDelivr 不可用）</span>' : '<span class="ok">（公开，CDN 可用）</span>'}</div>
+    <div class="small">默认分支：<code>${escapeHtml(repo.default_branch || '—')}</code> · 仓库体积：${humanSize((repo.size || 0) * 1024)} · 写入权限：${
+      push === true ? '<span class="ok">有</span>' : push === false ? '<span class="err">无</span>' : '<span class="muted">未知</span>'
+    }</div>`;
+}
+
+function renderRepoInfoError(error) {
+  const box = $('#repoInfo');
+  box.hidden = false;
+  box.className = 'info-box error';
+  box.textContent = error && error.message ? error.message : String(error);
+}
+
+/* ==================================================================== *
+ * 设置面板
+ * ==================================================================== */
+
+function fillPresetSelects() {
+  const options = CDN_PRESETS.map((p) => `<option value="${p.id}">${escapeHtml(p.label)}</option>`).join('');
+  $('#cdnPreset').innerHTML = options;
+  $('#settingsPreset').innerHTML = options;
+}
+
+function fillSettingsForm() {
+  const s = state.settings;
+  $('#tokenInput').value = s.token || '';
+  $('#tokenStorage').value = s.tokenStorage || 'local';
+  $('#ownerInput').value = s.owner || '';
+  $('#repoInput').value = s.repo || '';
+  $('#branchInput').value = s.branch || 'main';
+  $('#prefixInput').value = s.prefix || 'avatar';
+  $('#algorithmSelect').value = s.algorithm || 'sha256';
+  $('#settingsPreset').value = s.preset || 'jsdmirror';
+  $('#cdnPreset').value = s.preset || 'jsdmirror';
+  $('#customTemplate').value = s.customTemplate || '';
+  $('#keepExtChk').checked = Boolean(s.keepExtension);
+  $('#autoPurgeChk').checked = s.autoPurge !== false;
+  $('#defaultGravatar').value = s.defaultGravatar || 'mp';
+  $('#concurrencyInput').value = s.concurrency || 3;
+  $('#maxEdgeInput').value = s.maxEdge || 512;
+  $('#commitTemplateInput').value = s.commitTemplate || 'avatar: {action} {hash}';
+  $('#overwriteChk').checked = s.overwrite !== false;
+  $('#compressChk').checked = Boolean(s.compress);
+  $('#notesEnabledChk').checked = s.notesEnabled !== false;
+  $('#notesPathInput').value = s.notesPath || DEFAULT_NOTES_PATH;
+  $('#notesRepoInput').value = s.notesRepo || '';
+  updatePrefixWarning();
+}
+
+function collectSettingsForm() {
+  return {
+    ...state.settings,
+    token: $('#tokenInput').value.trim(),
+    tokenStorage: $('#tokenStorage').value,
+    owner: $('#ownerInput').value.trim(),
+    repo: $('#repoInput').value.trim(),
+    branch: $('#branchInput').value.trim() || 'main',
+    prefix: normalizePrefix($('#prefixInput').value),
+    algorithm: $('#algorithmSelect').value,
+    preset: $('#settingsPreset').value,
+    customTemplate: $('#customTemplate').value.trim(),
+    keepExtension: $('#keepExtChk').checked,
+    autoPurge: $('#autoPurgeChk').checked,
+    defaultGravatar: $('#defaultGravatar').value,
+    concurrency: Math.min(10, Math.max(1, Number($('#concurrencyInput').value) || 3)),
+    maxEdge: Math.min(4096, Math.max(16, Number($('#maxEdgeInput').value) || 512)),
+    commitTemplate: $('#commitTemplateInput').value.trim() || DEFAULT_SETTINGS.commitTemplate,
+    overwrite: $('#overwriteChk').checked,
+    compress: $('#compressChk').checked,
+    notesEnabled: $('#notesEnabledChk').checked,
+    notesPath: $('#notesPathInput').value.trim() || DEFAULT_NOTES_PATH,
+    notesRepo: $('#notesRepoInput').value.trim()
+  };
+}
+
+/** 保存设置并刷新所有依赖视图。 */
+function persist(patch = {}, { announce = false } = {}) {
+  state.settings = { ...state.settings, ...patch };
+  try {
+    saveSettings(state.settings);
+  } catch (error) {
+    toast(error.message, 'err', 6000);
+    return false;
+  }
+  updatePrefixWarning();
+  renderEmailPreview();
+  renderCdnPanel();
+  if (state.view.length || state.files.length) renderGallery();
+  if (announce) toast('设置已保存', 'ok');
+  return true;
+}
+
+function updatePrefixWarning() {
+  const prefix = normalizePrefix($('#prefixInput').value);
+  const algo = $('#algorithmSelect').value;
+  $('#prefixWarn').hidden = prefix === 'avatar';
+  $('#algoWarn').hidden = algo !== 'md5';
+}
+
+function bindSettings() {
+  $('#saveSettings').addEventListener('click', () => {
+    const next = collectSettingsForm();
+    const before = { ...state.settings };
+    state.settings = next;
+    if (!persist({}, { announce: false })) {
+      state.settings = before;
+      return;
+    }
+    $('#settingsPreset').value = next.preset;
+    $('#cdnPreset').value = next.preset;
+    toast('设置已保存', 'ok');
+    if (settingsReady()) connect({ silent: true });
+  });
+
+  $('#testConn').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    const next = collectSettingsForm();
+    state.settings = next;
+    saveSettings(state.settings);
+    setBusy(btn, true, '测试中…');
+    try {
+      await connect({ silent: false });
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  $('#loadBranches').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    if (!settingsReady()) {
+      toast('先填写令牌与仓库信息', 'warn');
+      return;
+    }
+    setBusy(btn, true, '读取中…');
+    try {
+      rebuildClient();
+      const branches = await state.client.listBranches();
+      $('#branchList').innerHTML = branches.map((b) => `<option value="${escapeHtml(b)}"></option>`).join('');
+      toast(branches.length ? `共 ${branches.length} 个分支：${branches.slice(0, 6).join(', ')}` : '该仓库还没有任何分支', 'ok');
+    } catch (error) {
+      toast(error.message, 'err', 7000);
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  $('#createRepo').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    const name = $('#repoInput').value.trim();
+    if (!state.settings.token) {
+      toast('先填写令牌', 'warn');
+      return;
+    }
+    if (!name) {
+      toast('先填写仓库名', 'warn');
+      return;
+    }
+    const ok = await confirmDialog({
+      title: '创建图床仓库',
+      html: `<p>将创建一个名为 <code>${escapeHtml(name)}</code> 的<strong>公开</strong>仓库，并自动生成初始提交。</p>
+             <p class="muted small">jsDelivr 只能读取公开仓库，所以这里固定创建公开仓库。</p>`,
+      confirmText: '创建'
+    });
+    if (!ok) return;
+
+    setBusy(btn, true, '创建中…');
+    try {
+      rebuildClient();
+      await state.client.createRepo({ name, isPrivate: false, description: '油条 头像图床', autoInit: true });
+      toast('仓库创建成功', 'ok');
+      await connect({ silent: true });
+      activateTab('settings');
+    } catch (error) {
+      toast(error.message, 'err', 7000);
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  $('#toggleToken').addEventListener('click', (event) => {
+    const input = $('#tokenInput');
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    event.currentTarget.textContent = show ? '隐藏' : '显示';
+  });
+
+  ['#prefixInput', '#algorithmSelect'].forEach((sel) =>
+    $(sel).addEventListener('input', updatePrefixWarning)
+  );
+  $('#algorithmSelect').addEventListener('change', updatePrefixWarning);
+
+  // 设置页里的预设下拉与 CDN 页联动
+  $('#settingsPreset').addEventListener('change', (event) => {
+    $('#cdnPreset').value = event.target.value;
+    persist({ preset: event.target.value });
+  });
+
+  $('#keepExtChk').addEventListener('change', () => renderEmailPreview());
+  $('#autoPurgeChk').addEventListener('change', () => persist({ autoPurge: $('#autoPurgeChk').checked }));
+  $('#defaultGravatar').addEventListener('change', () => persist({ defaultGravatar: $('#defaultGravatar').value }));
+
+  /* --------------------------- 备注同步 --------------------------- */
+
+  $('#notesEnabledChk').addEventListener('change', () => {
+    const enabled = $('#notesEnabledChk').checked;
+    persist({ notesEnabled: enabled });
+    renderNotesStatus();
+    if (enabled) {
+      ensureNotesConsent().then((ok) => ok && notesSync.flush());
+    }
+  });
+
+  $('#notesPathInput').addEventListener(
+    'change',
+    () => {
+      persist({ notesPath: $('#notesPathInput').value.trim() || DEFAULT_NOTES_PATH });
+      notesSync.reset();
+      renderNotesStatus();
+    }
+  );
+
+  $('#notesRepoInput').addEventListener(
+    'change',
+    () => {
+      persist({ notesRepo: $('#notesRepoInput').value.trim(), notesPublicAck: true });
+      notesSync.reset();
+      renderNotesStatus();
+    }
+  );
+
+  $('#notesSyncNow').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    if (!notesSync.enabled) {
+      toast('备注同步未开启，或还没配置好令牌与仓库', 'warn');
+      return;
+    }
+    setBusy(btn, true, '同步中…');
+    try {
+      const result = await notesSync.flush();
+      if (result.pushed) toast(`已同步 ${result.entries} 条备注到仓库`, 'ok');
+      else toast(`同步失败：${(result.error && result.error.message) || '未知原因'}`, 'err', 7000);
+    } finally {
+      setBusy(btn, false);
+      renderNotesStatus();
+    }
+  });
+
+  $('#notesPullNow').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    setBusy(btn, true, '拉取中…');
+    try {
+      const result = await notesSync.refresh();
+      renderNotesStatus();
+      if (result.pulled) {
+        toast(result.remoteExists ? `已从仓库拉取并合并备注（共 ${result.entries} 条）` : '仓库里还没有备注文件', 'ok');
+        renderGallery();
+      } else {
+        toast(`拉取失败：${(result.error && result.error.message) || '未知原因'}`, 'err', 7000);
+      }
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  $('#notesCreateRepo').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    if (!state.settings.token) {
+      toast('先填写并保存 GitHub 令牌', 'warn');
+      return;
+    }
+    const name = await promptDialog({
+      title: '新建私有备注仓库',
+      label: '仓库名',
+      value: 'youtiao-notes',
+      help: '会在你的账号下创建一个私有仓库，专门用来存备注文件（邮箱不会公开）。',
+      confirmText: '创建并使用'
+    });
+    if (!name) return;
+    setBusy(btn, true, '创建中…');
+    try {
+      rebuildClient();
+      const user = await state.client.getUser();
+      await state.client.createRepo({
+        name: name.trim(),
+        isPrivate: true,
+        description: '油条 · 头像邮箱备注（私有）',
+        autoInit: true
+      });
+      persist({ notesRepo: `${user.login}/${name.trim()}`, notesPublicAck: true, notesEnabled: true }, { announce: false });
+      fillSettingsForm();
+      notesSync.reset();
+      toast(`私有备注仓库 ${user.login}/${name.trim()} 已创建，备注将同步到那里`, 'ok', 6000);
+      renderNotesStatus();
+      notesSync.schedule();
+    } catch (error) {
+      toast(`创建失败：${error.message}`, 'err', 8000);
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  /* --------------------------- 备份 / 恢复 --------------------------- */
+
+  $('#exportAll').addEventListener('click', async () => {
+    const payload = {
+      ...exportNotes(),
+      settings: { ...state.settings, token: $('#tokenInput').value.trim() },
+      exportedFrom: 'youtiao'
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    triggerDownload(blob, `youtiao-backup-${new Date().toISOString().slice(0, 10)}.json`);
+    toast('已导出（含令牌，请妥善保管）', 'warn');
+  });
+
+  $('#importAll').addEventListener('click', () => $('#importFile').click());
+  $('#importFile').addEventListener('change', async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const payload = JSON.parse(await file.text());
+      const result = importNotes(payload);
+      if (payload.settings) {
+        state.settings = { ...state.settings, ...payload.settings };
+        saveSettings(state.settings);
+        fillSettingsForm();
+        renderCdnPanel();
+        renderEmailPreview();
+      }
+      toast(`导入成功：备注 ${result.imported} 条（本地共 ${result.total} 条）`, 'ok');
+      renderNotesStatus();
+      renderGallery();
+      notesSync.schedule();
+    } catch (error) {
+      toast(`导入失败：${error.message}`, 'err', 6000);
+    }
+  });
+
+  $('#clearHistory').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: '清空备注',
+      text: '将删除「邮箱 ↔ 哈希」的全部记录（本地和仓库里的备注文件都会清空）。仓库里的图片不受影响，但这些邮箱备注将无法恢复。',
+      confirmText: '清空',
+      danger: true
+    });
+    if (!ok) return;
+    clearNotes();
+    toast('备注已清空', 'ok');
+    renderNotesStatus();
+    renderGallery();
+    notesSync.schedule();
+  });
+
+  $('#resetSettings').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: '重置全部设置',
+      text: '将清除令牌与所有配置（不会删除仓库里的图片，也不会清除邮箱备注）。',
+      confirmText: '重置',
+      danger: true
+    });
+    if (!ok) return;
+    clearSettings();
+    state.settings = { ...DEFAULT_SETTINGS, token: '' };
+    fillSettingsForm();
+    renderCdnPanel();
+    renderEmailPreview();
+    setConnectionChip('未配置仓库');
+    state.files = [];
+    state.view = [];
+    renderGallery();
+    toast('已重置，请重新填写令牌', 'ok');
+  });
+}
+
+/* ==================================================================== *
+ * 上传
+ * ==================================================================== */
+
+function bindUpload() {
+  const dropzone = $('#dropzone');
+  const fileInput = $('#fileInput');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach((type) =>
+    dropzone.addEventListener(type, (event) => {
+      event.preventDefault();
+      dropzone.classList.add('dragover');
+    })
+  );
+  ['dragleave', 'drop'].forEach((type) =>
+    dropzone.addEventListener(type, (event) => {
+      event.preventDefault();
+      dropzone.classList.remove('dragover');
+    })
+  );
+  dropzone.addEventListener('drop', (event) => {
+    const files = event.dataTransfer && event.dataTransfer.files;
+    if (files && files.length) addFiles(files);
+  });
+
+  fileInput.addEventListener('change', (event) => {
+    if (event.target.files && event.target.files.length) addFiles(event.target.files);
+    event.target.value = '';
+  });
+
+  // 剪贴板粘贴图片
+  document.addEventListener('paste', (event) => {
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file && isImageFile(file)) files.push(file);
+      }
+    }
+    if (!files.length) return;
+    event.preventDefault();
+    if (!document.querySelector('#tab-upload').classList.contains('active')) activateTab('upload');
+    addFiles(files);
+  });
+
+  $('#emailInput').addEventListener('input', debounce(renderEmailPreview, 120));
+  $('#batchByFilename').addEventListener('change', renderEmailPreview);
+  $('#overwriteChk').addEventListener('change', () => persist({ overwrite: $('#overwriteChk').checked }));
+  $('#compressChk').addEventListener('change', () => persist({ compress: $('#compressChk').checked }));
+
+  $('#uploadBtn').addEventListener('click', startUpload);
+  $('#clearQueue').addEventListener('click', () => {
+    state.queue.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    state.queue = [];
+    renderQueue();
+  });
+}
+
+function renderEmailPreview() {
+  const box = $('#emailPreview');
+  const email = $('#emailInput').value.trim();
+  const batch = $('#batchByFilename').checked;
+
+  if (!email && !batch) {
+    box.className = 'preview-box muted';
+    box.textContent = '填入邮箱后这里会实时显示哈希、仓库路径与最终 URL';
+    return;
+  }
+
+  if (batch) {
+    box.className = 'preview-box';
+    box.innerHTML =
+      '<div class="label">批量模式已开启：</div>' +
+      '<div class="val">每个图片的<strong>文件名</strong>会被当作邮箱（自动剥掉图片扩展名）。例如 <code>alice@example.com.png</code> → <code>alice@example.com</code>。</div>' +
+      '<div class="label" style="margin-top:6px">这里的邮箱输入框将被忽略（文件名不是邮箱的图片会被跳过）。</div>';
+    return;
+  }
+
+  const info = describeEmail(state.settings, email);
+  const path = buildRepoPath(info.hash, {
+    prefix: state.settings.prefix,
+    keepExtension: state.settings.keepExtension,
+    extension: ''
+  });
+  const url = buildFileUrl(state.settings, path);
+  const existing = existingFileByPath(path);
+  const qq = isQQMail(email);
+  const prefixOk = normalizePrefix(state.settings.prefix) === 'avatar';
+
+  const warnings = [];
+  if (qq) warnings.push('这是 QQ 邮箱：Twikoo 会直接使用 QQ 头像接口，不会请求本图床。');
+  if (!prefixOk) warnings.push('目录不是 <code>avatar</code>，Twikoo 将取不到图片。');
+  if (state.settings.algorithm === 'md5') warnings.push('当前用 MD5，与 Twikoo 自定义 CDN（SHA-256）不匹配。');
+  if (state.settings.keepExtension) warnings.push('已开启「保留扩展名」，Twikoo 会 404。');
+  if (!url) warnings.push('还没有配置仓库，URL 无法生成。');
+
+  box.className = 'preview-box';
+  box.innerHTML = `
+    <div><span class="label">规范化邮箱：</span><span class="val">${escapeHtml(info.normalized)}</span></div>
+    <div><span class="label">${state.settings.algorithm === 'md5' ? 'MD5' : 'SHA-256'}：</span><span class="val">${escapeHtml(info.hash)}</span></div>
+    <div><span class="label">仓库路径：</span><span class="val">${escapeHtml(path)}</span></div>
+    <div><span class="label">图片直链：</span><span class="val">${url ? escapeHtml(url) : '—'}</span></div>
+    <div><span class="label">Twikoo 请求：</span><span class="val">${escapeHtml(buildTwikooRequestUrl(state.settings, email, { d: state.settings.defaultGravatar })) || '—'}</span></div>
+    <div style="margin-top:6px">${existing ? '<span class="warn">该邮箱已有头像（上传将按「覆盖同名文件」设置处理）</span>' : '<span class="ok">这是一个新头像</span>'}</div>
+    ${warnings.length ? `<div class="warn" style="margin-top:6px">⚠️ ${warnings.join('<br>⚠️ ')}</div>` : ''}`;
+}
+
+/** 把一个 File 变成队列项。 */
+function makeQueueItem(file, email) {
+  const hash = emailToFileName(email, state.settings.algorithm);
+  const ext = extensionOf(file.name);
+  const repoPath = buildRepoPath(hash, {
+    prefix: state.settings.prefix,
+    keepExtension: state.settings.keepExtension,
+    extension: ext
+  });
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    file,
+    email: normalizeMail(email),
+    hash,
+    repoPath,
+    url: buildFileUrl(state.settings, repoPath),
+    previewUrl: URL.createObjectURL(file),
+    size: file.size,
+    status: 'pending',
+    message: ''
+  };
+}
+
+function addFiles(fileList) {
+  const batch = $('#batchByFilename').checked;
+  const fallbackEmail = $('#emailInput').value.trim();
+  const added = [];
+  const skipped = [];
+
+  for (const file of Array.from(fileList)) {
+    if (!isImageFile(file)) {
+      skipped.push(`${file.name}（不是图片）`);
+      continue;
+    }
+    const email = batch ? emailFromFileName(file.name) : fallbackEmail;
+    if (!email) {
+      skipped.push(`${file.name}（缺少邮箱）`);
+      continue;
+    }
+    if (batch && !looksLikeEmail(email)) {
+      skipped.push(`${file.name}（文件名不是邮箱：${email}）`);
+      continue;
+    }
+    const item = makeQueueItem(file, email);
+    const dupIndex = state.queue.findIndex((q) => q.repoPath === item.repoPath);
+    if (dupIndex >= 0) {
+      URL.revokeObjectURL(state.queue[dupIndex].previewUrl);
+      state.queue[dupIndex] = item;
+    } else {
+      state.queue.push(item);
+    }
+    added.push(item);
+  }
+
+  renderQueue();
+  if (added.length) toast(`已加入 ${added.length} 张图片`, 'ok');
+  if (skipped.length) toast(`跳过 ${skipped.length} 个：${skipped.slice(0, 3).join('；')}`, 'warn', 6000);
+}
+
+function renderQueue() {
+  const box = $('#queue');
+  const count = $('#queueCount');
+  count.textContent = String(state.queue.length);
+  $('#uploadBtn').disabled = state.queue.length === 0 || state.busy;
+  $('#clearQueue').disabled = state.queue.length === 0 || state.busy;
+
+  if (!state.queue.length) {
+    box.innerHTML = '<p class="muted">队列为空。</p>';
+    return;
+  }
+
+  const statusText = {
+    pending: '待上传',
+    uploading: '上传中…',
+    done: '✅ 完成',
+    skip: '⏭ 已跳过',
+    error: '⛔ 失败'
+  };
+
+  box.innerHTML = state.queue
+    .map(
+      (item) => `
+    <div class="queue-item">
+      <img src="${item.previewUrl}" alt="">
+      <div class="meta">
+        <div class="title">${escapeHtml(item.email)}</div>
+        <div class="path" title="${escapeHtml(item.repoPath)}">${escapeHtml(item.repoPath)}</div>
+        <div class="path">${humanSize(item.size)}${item.message ? ` · ${escapeHtml(item.message)}` : ''}</div>
+      </div>
+      <div class="status status-${item.status}">${statusText[item.status] || item.status}</div>
+    </div>`
+    )
+    .join('');
+}
+
+async function startUpload() {
+  if (!settingsReady()) {
+    toast('先在设置页配置令牌与仓库', 'warn');
+    activateTab('settings');
+    return;
+  }
+  const pending = state.queue.filter((item) => item.status === 'pending' || item.status === 'error');
+  if (!pending.length) {
+    toast('没有待上传的图片', 'warn');
+    return;
+  }
+
+  rebuildClient();
+  state.busy = true;
+  renderQueue();
+  const btn = $('#uploadBtn');
+  setBusy(btn, true, '上传中…');
+  pushLog(`=== 开始上传 ${pending.length} 张 ===`);
+
+  const overwrite = $('#overwriteChk').checked;
+  const compressWanted = $('#compressChk').checked;
+  // 「保留扩展名」时压缩会让扩展名与真实内容不符（比如转成 WebP 却还叫 .png），
+  // 这种情况下宁可保留原图，也不要写出一个名不副实的文件。
+  const compress = compressWanted && !state.settings.keepExtension;
+  if (compressWanted && state.settings.keepExtension) {
+    toast('已同时开启「保留扩展名」与压缩，为避免扩展名与内容不符，本次跳过压缩', 'warn', 6000);
+  }
+  const concurrency = Math.min(10, Math.max(1, Number(state.settings.concurrency) || 3));
+  let okCount = 0;
+  let skipCount = 0;
+  let failCount = 0;
+  const newHistory = [];
+  const updatedPaths = [];
+
+  const results = await mapLimit(pending, concurrency, async (item) => {
+    item.status = 'uploading';
+    renderQueue();
+    try {
+      let base64;
+      let note = '';
+
+      if (compress) {
+        const result = await compressImage(item.file, {
+          maxEdge: state.settings.maxEdge,
+          format: 'webp',
+          quality: 0.9
+        });
+        base64 = await blobToBase64(result.blob);
+        note = result.passthrough
+          ? '原样上传'
+          : `已压缩为 ${result.width}×${result.height} ${result.type.replace('image/', '')}`;
+      } else {
+        base64 = await fileToBase64(item.file);
+      }
+
+      const existing = existingFileByPath(item.repoPath);
+      const response = await state.client.putFile(item.repoPath, base64, {
+        message: commitMessage(existing ? 'update' : 'add', { hash: item.hash, path: item.repoPath, email: item.email }),
+        sha: existing && overwrite ? existing.sha : undefined,
+        overwrite
+      });
+
+      if (response.skipped) {
+        item.status = 'skip';
+        item.message = '已存在，未覆盖';
+        skipCount++;
+        pushLog(`[跳过] ${item.repoPath} 已存在`);
+      } else {
+        item.status = 'done';
+        item.message = note || (response.updated ? '已更新' : '已新增');
+        okCount++;
+        if (response.updated) updatedPaths.push(item.repoPath);
+        pushLog(`[成功] ${item.email} → ${item.repoPath}\n        ${item.url}`);
+        newHistory.push({
+          email: item.email,
+          hash: item.hash,
+          path: item.repoPath,
+          url: item.url,
+          size: item.file.size
+        });
+        if (!existing) {
+          state.files.push({ path: item.repoPath, name: fileNameOf(item.repoPath), sha: response.sha, size: item.file.size, email: item.email, note: '' });
+        } else {
+          existing.sha = response.sha || existing.sha;
+          existing.email = item.email;
+        }
+      }
+    } catch (error) {
+      item.status = 'error';
+      item.message = error instanceof GitHubError ? error.message : String(error.message || error);
+      failCount++;
+      pushLog(`[失败] ${item.repoPath}：${item.message}`);
+    }
+    renderQueue();
+    return item;
+  });
+
+  state.busy = false;
+  setBusy(btn, false);
+  renderRateChip();
+
+  if (newHistory.length) {
+    try {
+      saveNotesDoc(upsertEntries(loadNotesDoc(), newHistory, Date.now(), state.settings.historyLimit));
+      renderNotesStatus();
+      // 备注有变化：异步同步到仓库（第一次会先征求用户对「公开 / 私有」的意见）
+      syncNotesSoon('上传后同步备注');
+    } catch (error) {
+      toast(error.message, 'warn', 6000);
+    }
+  }
+
+  const failed = results.filter((r) => r.ok && r.value.status === 'error').length;
+  pushLog(`=== 结束：成功 ${okCount} · 跳过 ${skipCount} · 失败 ${failCount} ===`);
+
+  // 覆盖过的文件要清 CDN 缓存，否则评论里还是旧头像
+  if (updatedPaths.length) autoPurge(updatedPaths);
+
+  if (failCount === 0 && skipCount === 0) toast(`全部成功：${okCount} 张`, 'ok');
+  else if (failCount === 0) toast(`成功 ${okCount} 张，跳过 ${skipCount} 张`, 'warn', 5000);
+  else toast(`成功 ${okCount} · 跳过 ${skipCount} · 失败 ${failCount}`, 'err', 8000);
+
+  // 上传完成的条目移出队列，失败/跳过的留在队列里便于重试（它们的预览 URL 不能回收）
+  state.queue.filter((item) => item.status !== 'error').forEach((item) => URL.revokeObjectURL(item.previewUrl));
+  state.queue = state.queue.filter((item) => item.status === 'error');
+  renderQueue();
+
+  applyFilters({ keepPage: true });
+  renderGallery();
+  if (settingsReady() && failed === 0) loadGallery({ silent: true });
+}
+
+/* ==================================================================== *
+ * 图库
+ * ==================================================================== */
+
+async function loadGallery({ silent = false } = {}) {
+  if (!settingsReady()) {
+    if (!silent) toast('先在设置页配置令牌与仓库', 'warn');
+    return;
+  }
+  rebuildClient();
+  const box = $('#gallery');
+  if (!silent) box.innerHTML = '<div class="empty">正在读取仓库文件…</div>';
+  try {
+    // 先把远程备注拉下来合并，否则图库会显示不出邮箱（备注在另一台设备上加过）
+    if (notesSync.enabled) await notesSync.pull();
+    // 备注文件永远不能出现在图库里（万一被配置到了 avatar/ 目录下）
+    const { files, truncated, total } = await state.client.listTree(state.settings.prefix, {
+      exclude: [resolveNotesTarget(state.settings).path]
+    });
+    const index = notesIndex(entriesOf(loadNotesDoc()));
+    state.files = annotateFiles(files, index);
+    renderRateChip();
+    renderNotesStatus();
+    applyFilters({ keepPage: false });
+    renderGallery();
+    const bytes = state.files.reduce((sum, f) => sum + (f.size || 0), 0);
+    $('#galleryStats').textContent = `${state.files.length} 个头像 · ${humanSize(bytes)} · 仓库共 ${total} 个文件`;
+    if (truncated) toast('仓库文件过多，GitHub 返回的列表被截断，部分文件未显示', 'warn', 7000);
+    if (!silent) toast(`已加载 ${state.files.length} 个头像`, 'ok');
+  } catch (error) {
+    state.files = [];
+    state.view = [];
+    box.innerHTML = `<div class="empty err">读取失败：${escapeHtml(error.message)}</div>`;
+    if (!silent) toast(error.message, 'err', 7000);
+  }
+}
+
+function applyFilters({ keepPage = false } = {}) {
+  const keyword = state.search.trim().toLowerCase();
+  let list = state.files;
+
+  if (keyword) {
+    list = list.filter((file) => {
+      const haystack = `${file.name} ${file.path} ${file.email || ''} ${file.note || ''}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }
+
+  const sorters = {
+    name: (a, b) => a.name.localeCompare(b.name),
+    'name-desc': (a, b) => b.name.localeCompare(a.name),
+    'size-desc': (a, b) => (b.size || 0) - (a.size || 0),
+    'size-asc': (a, b) => (a.size || 0) - (b.size || 0)
+  };
+  state.view = [...list].sort(sorters[state.sort] || sorters.name);
+  if (!keepPage) state.page = 1;
+
+  // 只清理「已经不在仓库里」的选择（比如刚被删掉的）。
+  // 注意不能用过滤后的 state.view：否则用户一搜索就会静默丢失已勾选项。
+  const known = new Set(state.files.map((f) => f.path));
+  for (const path of [...state.selection]) if (!known.has(path)) state.selection.delete(path);
+}
+
+function renderGallery() {
+  const box = $('#gallery');
+  const cfg = cdnConfig();
+
+  if (!settingsReady()) {
+    box.innerHTML = '<div class="empty">还没有配置仓库。请到「设置」页填写令牌与仓库信息。</div>';
+    $('#galleryActions').hidden = true;
+    $('#pager').innerHTML = '';
+    $('#galleryStats').textContent = '';
+    return;
+  }
+
+  if (!state.view.length) {
+    box.innerHTML = state.files.length
+      ? '<div class="empty">没有匹配的头像，换个关键词试试。</div>'
+      : `<div class="empty">仓库的 <code>${escapeHtml(normalizePrefix(state.settings.prefix) || '(根目录)')}</code> 目录下还没有图片。<br>回到「上传」页添加第一个头像，或点右上角「刷新列表」。</div>`;
+    $('#galleryActions').hidden = true;
+    $('#pager').innerHTML = '';
+    return;
+  }
+
+  const slice = pageSlice(state.view, state.page, state.pageSize);
+  state.page = slice.page;
+
+  box.innerHTML = slice.items
+    .map((file) => {
+      const url = buildFileUrl(cfg, file.path);
+      const selected = state.selection.has(file.path);
+      const label = file.email || '';
+      return `
+      <div class="tile ${selected ? 'selected' : ''}" data-path="${escapeHtml(file.path)}">
+        <input class="pick" type="checkbox" data-pick="${escapeHtml(file.path)}" ${selected ? 'checked' : ''} aria-label="选择">
+        <span class="badge">${humanSize(file.size)}</span>
+        <img class="thumb" src="${escapeHtml(url)}" alt="" loading="lazy"
+             data-zoom="${escapeHtml(url)}" data-caption="${escapeHtml(file.path)}">
+        <div class="tile-body">
+          <div class="tile-name" title="${escapeHtml(file.path)}">${escapeHtml(truncateMiddle(file.name, 12, 6))}</div>
+          <div class="tile-email" title="${escapeHtml(label)}">${label ? escapeHtml(label) : '<span class="muted">无备注邮箱</span>'}</div>
+          <div class="tile-sub"><span>${escapeHtml(file.sha.slice(0, 7))}</span></div>
+          <div class="tile-actions">
+            <button type="button" data-act="copy" title="复制直链">链接</button>
+            <button type="button" data-act="md" title="复制 Markdown">MD</button>
+            <button type="button" data-act="preview" title="预览">预览</button>
+            <button type="button" data-act="note" title="给这个头像补一个邮箱备注（只存本地）">备注</button>
+            <button type="button" data-act="rename" title="改绑邮箱（会移动仓库里的文件）">改邮箱</button>
+            <button type="button" data-act="download" title="下载原图">下载</button>
+            <button type="button" data-act="purge" title="刷新 jsDelivr 缓存">刷缓存</button>
+            <button type="button" data-act="open" title="在 GitHub 打开">GH</button>
+            <button type="button" class="danger" data-act="delete" title="删除">删除</button>
+          </div>
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  $('#galleryActions').hidden = false;
+  renderPager(slice);
+  renderSelectionInfo();
+}
+
+function renderPager(slice) {
+  const pager = $('#pager');
+  if (!slice || slice.totalPages <= 1) {
+    pager.innerHTML = '';
+    return;
+  }
+  const buttons = pageNumbers(slice.page, slice.totalPages)
+    .map((p) =>
+      p === '…'
+        ? '<span class="muted">…</span>'
+        : `<button type="button" class="${p === slice.page ? 'current' : ''}" data-page="${p}">${p}</button>`
+    )
+    .join('');
+  pager.innerHTML = `
+    <button type="button" data-page="${slice.page - 1}" ${slice.page === 1 ? 'disabled' : ''}>上一页</button>
+    ${buttons}
+    <button type="button" data-page="${slice.page + 1}" ${slice.page === slice.totalPages ? 'disabled' : ''}>下一页</button>
+    <span class="muted small">共 ${state.view.length} 项</span>`;
+}
+
+function renderSelectionInfo() {
+  $('#selCount').textContent = `已选 ${state.selection.size} 项`;
+  const has = state.selection.size > 0;
+  ['#copySelectedLinks', '#copySelectedMd', '#exportSelected', '#deleteSelected', '#purgeSelected'].forEach((sel) => {
+    $(sel).disabled = !has;
+  });
+}
+
+function selectedFiles() {
+  return state.files.filter((f) => state.selection.has(f.path));
+}
+
+function bindGallery() {
+  $('#refreshGallery').addEventListener('click', (event) => {
+    const btn = event.currentTarget;
+    setBusy(btn, true, '读取中…');
+    loadGallery().finally(() => setBusy(btn, false));
+  });
+
+  $('#gallerySearch').addEventListener(
+    'input',
+    debounce((event) => {
+      state.search = event.target.value;
+      applyFilters();
+      renderGallery();
+    }, 160)
+  );
+
+  $('#gallerySort').addEventListener('change', (event) => {
+    state.sort = event.target.value;
+    applyFilters();
+    renderGallery();
+  });
+
+  $('#galleryPageSize').addEventListener('change', (event) => {
+    state.pageSize = Number(event.target.value) || 60;
+    state.page = 1;
+    renderGallery();
+  });
+
+  $('#pager').addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-page]');
+    if (!btn || btn.disabled) return;
+    state.page = Number(btn.dataset.page) || 1;
+    renderGallery();
+    document.querySelector('#tab-gallery .card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  $('#selectPage').addEventListener('click', () => {
+    const slice = pageSlice(state.view, state.page, state.pageSize);
+    slice.items.forEach((f) => state.selection.add(f.path));
+    renderGallery();
+  });
+
+  $('#clearSelection').addEventListener('click', () => {
+    state.selection.clear();
+    renderGallery();
+  });
+
+  $('#copySelectedLinks').addEventListener('click', () => {
+    const entries = selectedFiles().map((f) => ({ ...f, url: buildFileUrl(cdnConfig(), f.path) }));
+    copyWithToast(toPlainLinks(entries), `已复制 ${entries.length} 条链接`);
+  });
+
+  $('#copySelectedMd').addEventListener('click', () => {
+    const entries = selectedFiles().map((f) => ({ ...f, url: buildFileUrl(cdnConfig(), f.path) }));
+    copyWithToast(toMarkdown(entries), `已复制 ${entries.length} 条 Markdown`);
+  });
+
+  $('#exportSelected').addEventListener('click', () => {
+    const cfg = cdnConfig();
+    const rows = selectedFiles().map((f) => ({
+      email: f.email || '',
+      hash: f.name,
+      path: f.path,
+      size: f.size,
+      url: buildFileUrl(cfg, f.path),
+      twikooUrl: f.email ? buildTwikooRequestUrl(cfg, f.email, { d: state.settings.defaultGravatar }) : ''
+    }));
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), items: rows }, null, 2)], {
+      type: 'application/json'
+    });
+    triggerDownload(blob, `youtiao-links-${new Date().toISOString().slice(0, 10)}.json`);
+  });
+
+  $('#deleteSelected').addEventListener('click', deleteSelected);
+
+  $('#purgeSelected').addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    const paths = selectedFiles().map((f) => f.path);
+    if (!paths.length) return;
+    setBusy(btn, true, '刷新中…');
+    try {
+      await purgePaths(paths);
+    } catch (error) {
+      toast(`刷新缓存失败：${error.message}`, 'err', 6000);
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
+  // 事件委托：勾选、缩放、各种操作
+  $('#gallery').addEventListener('change', (event) => {
+    const pick = event.target.closest('[data-pick]');
+    if (!pick) return;
+    const path = pick.dataset.pick;
+    if (pick.checked) state.selection.add(path);
+    else state.selection.delete(path);
+    const tile = pick.closest('.tile');
+    if (tile) tile.classList.toggle('selected', pick.checked);
+    renderSelectionInfo();
+  });
+
+  $('#gallery').addEventListener('click', async (event) => {
+    const thumb = event.target.closest('.thumb');
+    const action = event.target.closest('[data-act]');
+    if (action) {
+      event.preventDefault();
+      const tile = action.closest('.tile');
+      const file = state.files.find((f) => f.path === tile.dataset.path);
+      if (file) await handleTileAction(action.dataset.act, file);
+      return;
+    }
+    if (thumb) {
+      openLightbox(thumb.dataset.zoom, thumb.dataset.caption || '');
+    }
+  });
+}
+
+async function handleTileAction(action, file) {
+  const cfg = cdnConfig();
+  const url = buildFileUrl(cfg, file.path);
+
+  switch (action) {
+    case 'copy':
+      await copyWithToast(url, '直链已复制');
+      break;
+
+    case 'md':
+      await copyWithToast(`![${file.email || file.name}](${url})`, 'Markdown 已复制');
+      break;
+
+    case 'preview':
+      openLightbox(url, file.path);
+      break;
+
+    case 'purge':
+      await purgePaths([file.path]);
+      break;
+
+    case 'open':
+      window.open(
+        `https://github.com/${state.settings.owner}/${state.settings.repo}/blob/${state.settings.branch}/${file.path}`,
+        '_blank',
+        'noopener'
+      );
+      break;
+
+    case 'download':
+      try {
+        const base64 = await state.client.getBlobBase64(file.sha);
+        const { blob, ext } = blobFromBase64(base64);
+        triggerDownload(blob, `${file.name}.${ext}`);
+        toast('已开始下载原图', 'ok');
+      } catch (error) {
+        toast(`下载失败：${error.message}`, 'err', 6000);
+      }
+      break;
+
+    case 'rename':
+      await renameAvatar(file);
+      break;
+
+    case 'note':
+      await annotateAvatar(file);
+      break;
+
+    case 'delete':
+      await deleteFiles([file]);
+      break;
+
+    default:
+      break;
+  }
+}
+
+/** 写入备注（本地缓存 + 安排远程同步）。 */
+function writeNotes(entries, { tombstone = [] } = {}) {
+  let doc = loadNotesDoc();
+  if (tombstone.length) doc = tombstoneEntries(doc, tombstone);
+  if (entries.length) doc = upsertEntries(doc, entries, Date.now(), state.settings.historyLimit);
+  saveNotesDoc(doc, state.settings.historyLimit);
+  renderNotesStatus();
+  syncNotesSoon();
+  return doc;
+}
+
+/** 只记录「邮箱 ↔ 哈希」备注，完全不动仓库里的图片。 */
+function recordNote(file, email) {
+  const normalized = normalizeMail(email);
+  writeNotes([
+    { email: normalized, hash: file.name, path: file.path, url: buildFileUrl(cdnConfig(), file.path), size: file.size }
+  ]);
+  file.email = normalized;
+  renderGallery();
+}
+
+/** 把文件移动到某个邮箱对应的正确路径（新增 + 删除两次提交）。 */
+async function moveToEmail(file, email, hash) {
+  const target = buildRepoPath(hash, {
+    prefix: state.settings.prefix,
+    keepExtension: state.settings.keepExtension,
+    extension: extensionOf(file.path)
+  });
+  await state.client.moveFile(file.path, target, file.sha, {
+    overwrite: true,
+    message: commitMessage('rename', { hash, path: `${file.path} -> ${target}`, email })
+  });
+  writeNotes([{ email: normalizeMail(email), hash, path: target, url: buildFileUrl(cdnConfig(), target) }], {
+    tombstone: [file.name]
+  });
+  autoPurge([file.path, target]);
+  await loadGallery({ silent: true });
+}
+
+/**
+ * 改绑邮箱：算出新哈希 → 在仓库里移动文件。
+ * 如果新邮箱的哈希与当前文件名本来就一致（只是本地缺备注），就只记录备注、不动机器。
+ */
+async function renameAvatar(file) {
+  const current = file.email || '';
+  const next = await promptDialog({
+    title: '改绑邮箱',
+    label: '新的邮箱',
+    value: current,
+    placeholder: 'newuser@example.com',
+    help: '会用新邮箱的哈希作为新文件名，并在仓库里把文件移动过去（一次新增 + 一次删除提交）。若哈希本来就一致，则只记录备注。',
+    confirmText: '移动'
+  });
+  if (next === null) return;
+  const email = next.trim();
+  if (!email) {
+    toast('邮箱不能为空', 'warn');
+    return;
+  }
+  if (normalizeMail(email) === normalizeMail(current)) {
+    toast('邮箱没有变化', 'warn');
+    return;
+  }
+
+  const hash = emailToFileName(email, state.settings.algorithm);
+  if (hash === file.name) {
+    recordNote(file, email);
+    toast('哈希本来就一致，已直接记录备注（无需移动文件）', 'ok');
+    return;
+  }
+
+  try {
+    await moveToEmail(file, email, hash);
+    toast('已改绑邮箱并移动文件', 'ok');
+  } catch (error) {
+    toast(`移动失败：${error.message}`, 'err', 7000);
+  }
+}
+
+/**
+ * 备注邮箱：把仓库里已有的头像和某个邮箱关联起来。
+ * 场景：头像早就传上去了，或者别人帮你传的，本地没有备注 → 图库里只显示一串哈希。
+ * 哈希一致就只写本地；不一致则问你要不要顺手把文件搬到正确路径。
+ */
+async function annotateAvatar(file) {
+  const next = await promptDialog({
+    title: '备注邮箱',
+    label: '这个头像属于哪个邮箱？',
+    value: file.email || '',
+    placeholder: 'user@example.com',
+    help: '只记录在浏览器本地，用于显示与搜索，不会改动仓库里的文件。',
+    confirmText: '保存备注'
+  });
+  if (next === null) return;
+  const email = next.trim();
+  if (!email) {
+    toast('邮箱不能为空', 'warn');
+    return;
+  }
+  if (normalizeMail(email) === normalizeMail(file.email || '')) {
+    toast('备注没有变化', 'warn');
+    return;
+  }
+
+  const hash = emailToFileName(email, state.settings.algorithm);
+  if (hash === file.name) {
+    recordNote(file, email);
+    toast('已保存备注', 'ok');
+    return;
+  }
+
+  const move = await confirmDialog({
+    title: '哈希不匹配',
+    html: `<p>这个头像的文件名是：<br><code>${escapeHtml(file.name)}</code></p>
+           <p><code>${escapeHtml(email)}</code> 的哈希却是：<br><code>${escapeHtml(hash)}</code></p>
+           <p>两者不一致，说明它并不是由这个邮箱算出来的 —— <strong>Twikoo 用这个邮箱取不到它</strong>。
+              要把文件移动到正确的路径吗？（会新增一个文件并删除原来的）</p>`,
+    confirmText: '移动文件',
+    cancelText: '只存备注'
+  });
+
+  if (!move) {
+    recordNote(file, email);
+    toast('已只存备注（未改动仓库）', 'warn', 5000);
+    return;
+  }
+  try {
+    await moveToEmail(file, email, hash);
+    toast('已移动到正确的路径', 'ok');
+  } catch (error) {
+    toast(`移动失败：${error.message}`, 'err', 7000);
+  }
+}
+
+async function deleteSelected() {
+  const files = selectedFiles();
+  if (!files.length) return;
+  await deleteFiles(files);
+}
+
+async function deleteFiles(files) {
+  const list = files.filter(Boolean);
+  if (!list.length) return;
+
+  const preview = list
+    .slice(0, 6)
+    .map((f) => `<li><code>${escapeHtml(f.path)}</code>${f.email ? ` · ${escapeHtml(f.email)}` : ''}</li>`)
+    .join('');
+  const ok = await confirmDialog({
+    title: `删除 ${list.length} 个头像`,
+    html: `<p>将从仓库中删除以下文件（每个文件一次提交，可以随时在 GitHub 上回滚）：</p>
+           <ul>${preview}</ul>
+           ${list.length > 6 ? `<p class="muted small">…以及另外 ${list.length - 6} 个</p>` : ''}`,
+    confirmText: '删除',
+    danger: true
+  });
+  if (!ok) return;
+
+  const btn = $('#deleteSelected');
+  setBusy(btn, true, '删除中…');
+  let okCount = 0;
+  const failed = [];
+
+  const results = await mapLimit(list, Math.min(4, list.length), async (file) => {
+    try {
+      await state.client.deleteFile(file.path, file.sha, {
+        message: commitMessage('delete', { hash: file.name, path: file.path, email: file.email })
+      });
+      okCount++;
+      return file;
+    } catch (error) {
+      failed.push(`${file.path}：${error.message}`);
+      return null;
+    }
+  });
+
+  const deleted = results.filter((r) => r.ok && r.value).map((r) => r.value);
+  const deletedPaths = new Set(deleted.map((f) => f.path));
+  state.files = state.files.filter((f) => !deletedPaths.has(f.path));
+  deleted.forEach((f) => state.selection.delete(f.path));
+  if (deleted.length) writeNotes([], { tombstone: deleted.map((f) => f.name) });
+
+  setBusy(btn, false);
+  renderRateChip();
+  applyFilters({ keepPage: true });
+  renderGallery();
+  if (deleted.length) autoPurge(deleted.map((f) => f.path));
+
+  if (!failed.length) toast(`已删除 ${okCount} 个头像`, 'ok');
+  else toast(`删除完成：成功 ${okCount} · 失败 ${failed.length}（${failed[0]}）`, 'err', 8000);
+}
+
+/* ==================================================================== *
+ * CDN 与 Twikoo
+ * ==================================================================== */
+
+function bindCdn() {
+  $('#cdnPreset').addEventListener('change', (event) => {
+    $('#settingsPreset').value = event.target.value;
+    persist({ preset: event.target.value });
+  });
+
+  $('#customTemplate').addEventListener(
+    'input',
+    debounce(() => persist({ customTemplate: $('#customTemplate').value.trim() }), 300)
+  );
+
+  $('#genLinks').addEventListener('click', generateLinks);
+
+  $('#bulkEmails').addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') generateLinks();
+  });
+
+  $('#copyAllLinks').addEventListener('click', () => {
+    if (!state.links.length) return;
+    copyWithToast(toPlainLinks(state.links), `已复制 ${state.links.length} 条链接`);
+  });
+
+  $('#downloadTxt').addEventListener('click', () => downloadLinks('txt'));
+  $('#downloadCsv').addEventListener('click', () => downloadLinks('csv'));
+  $('#downloadJson').addEventListener('click', () => downloadLinks('json'));
+}
+
+function renderCdnPanel() {
+  const cfg = cdnConfig();
+  const preset = getPreset(state.settings.preset);
+
+  $('#customTemplateField').hidden = preset.id !== 'custom';
+  $('#cdnPreset').value = preset.id;
+  $('#settingsPreset').value = preset.id;
+  $('#presetNote').textContent = preset.note || '';
+
+  // 缓存刷新能力：jsdmirror 这类第三方镜像 purge 管不到，必须在这里就说清楚，
+  // 否则用户会以为「刷过缓存了」，然后在评论区看到旧头像干着急。
+  const support = purgeSupport(cfg);
+  const purgeNote = $('#cdnPurgeNote');
+  purgeNote.hidden = support.supported;
+  purgeNote.textContent = support.supported ? '' : `⚠️ ${support.reason} ${support.workaround.split('\n').join(' ')}`;
+
+  const base = buildCdnBase(cfg);
+  const value = toTwikooValue(base);
+  $('#cdnBase').textContent = base || '—（请先在设置页填写仓库所有者与仓库名）';
+  $('#twikooValue').textContent = value || '—';
+
+  const prefixOk = normalizePrefix(state.settings.prefix) === 'avatar';
+  const d = state.settings.defaultGravatar || 'mp';
+  const sampleHash = '973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b';
+
+  $('#twikooSnippet').innerHTML = `
+Twikoo 后台 → 设置 → 评论 → 头像 CDN（GRAVATAR_CDN）
+
+  GRAVATAR_CDN = ${escapeHtml(value || '（尚未配置仓库）')}
+  DEFAULT_GRAVATAR = ${escapeHtml(d)}
+
+Twikoo 最终请求的地址形如：
+
+  https://${escapeHtml(value || '<你的CDN基址>')}/avatar/<邮箱的SHA-256>?d=${escapeHtml(d)}
+
+以上面测试邮箱 test@example.com 为例：
+
+  https://${escapeHtml(value || '<你的CDN基址>')}/avatar/${sampleHash}?d=${escapeHtml(d)}
+${prefixOk ? '' : '\n⚠️ 当前目录前缀不是 avatar，Twikoo 会 404。请到设置页把「仓库内目录」改回 avatar。'}`;
+}
+
+function generateLinks() {
+  const raw = $('#bulkEmails').value;
+  if (!raw.trim()) {
+    toast('先输入至少一个邮箱', 'warn');
+    return;
+  }
+  const cfg = cdnConfig();
+  const exists = new Set(state.files.map((f) => f.name));
+  state.links = uniqueBy(
+    describeEmails(cfg, raw, { d: state.settings.defaultGravatar }).map((info) => ({
+      ...info,
+      uploaded: exists.has(info.hash)
+    })),
+    (x) => x.hash
+  );
+
+  const box = $('#linkResult');
+  if (!state.links.length) {
+    box.innerHTML = '<p class="muted">没有解析到有效邮箱。</p>';
+    return;
+  }
+
+  box.innerHTML = state.links
+    .map(
+      (info) => `
+    <div class="link-row ${info.uploaded ? '' : 'missing'}">
+      <img src="${escapeHtml(info.url)}" alt="" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <div>
+        <div class="l-email">${escapeHtml(info.email)}${isQQMail(info.email) ? ' <span class="l-tag">QQ 邮箱：Twikoo 不请求图床</span>' : ''}</div>
+        <div class="l-url" title="${escapeHtml(info.url)}">${escapeHtml(info.url)}</div>
+      </div>
+      <div class="row" style="margin:0;gap:6px">
+        <span class="l-tag">${info.uploaded ? '<span class="ok">已上传</span>' : '未上传'}</span>
+        <button type="button" class="mini" data-copy-inline="${escapeHtml(info.url)}">复制</button>
+      </div>
+    </div>`
+    )
+    .join('');
+
+  box.querySelectorAll('[data-copy-inline]').forEach((btn) =>
+    btn.addEventListener('click', () => copyWithToast(btn.dataset.copyInline))
+  );
+
+  ['#copyAllLinks', '#downloadTxt', '#downloadCsv', '#downloadJson'].forEach((sel) => ($(sel).disabled = false));
+
+  const missing = state.links.filter((l) => !l.uploaded).length;
+  $('#genLinks').textContent = `生成（${state.links.length}）`;
+  toast(`已生成 ${state.links.length} 条链接${missing ? `，其中 ${missing} 个邮箱还没有头像` : '，全部都已上传'}`, missing ? 'warn' : 'ok', 5000);
+}
+
+function downloadLinks(format) {
+  if (!state.links.length) return;
+  const stamp = new Date().toISOString().slice(0, 10);
+  if (format === 'txt') {
+    triggerDownload(toPlainLinks(state.links), `youtiao-links-${stamp}.txt`, 'text/plain;charset=utf-8');
+  } else if (format === 'csv') {
+    const rows = state.links.map((l) => [l.email, l.hash, l.url, l.twikooUrl, l.uploaded ? 'yes' : 'no']);
+    triggerDownload(toCsv(rows, ['email', 'hash', 'url', 'twikoo_url', 'uploaded']), `youtiao-links-${stamp}.csv`, 'text/csv;charset=utf-8');
+  } else {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      cdnBase: buildCdnBase(cdnConfig()),
+      twikooValue: toTwikooValue(buildCdnBase(cdnConfig())),
+      items: state.links.map((l) => ({
+        email: l.email,
+        hash: l.hash,
+        path: l.repoPath,
+        url: l.url,
+        twikooUrl: l.twikooUrl,
+        uploaded: l.uploaded
+      }))
+    };
+    triggerDownload(JSON.stringify(payload, null, 2), `youtiao-links-${stamp}.json`, 'application/json');
+  }
+}
+
+/* ==================================================================== *
+ * 启动
+ * ==================================================================== */
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+// 给 index.html 里的兜底提示用：标记脚本确实跑起来了。
+// （以 file:// 双击打开时 ES 模块会被浏览器拦截，这段代码根本不会执行，
+//   页面上的提示就会告诉用户改用 npm start 或单文件版。）
+document.documentElement.dataset.youtiaoBooted = '1';
+
+// 便于在浏览器控制台排查
+window.youtiao = { state, cdnConfig, buildCdnBase, buildTwikooRequestUrl };
+})();
+    </script>
+
+<!-- 兜底提示：以 file:// 直接双击打开时，浏览器会以同源策略为由拒绝加载 ES 模块，
+     页面会表现成「所有按钮都没反应」。这里用一个普通脚本检测并给出明确的解决办法。 -->
+<script>
+  setTimeout(function () {
+    if (document.documentElement.dataset.youtiaoBooted === '1') return;
+    var tip = document.createElement('div');
+    tip.className = 'boot-error';
+    tip.innerHTML =
+      '<strong>页面脚本没有加载成功，所以按钮都不会有反应。</strong>' +
+      '<p>最常见的原因：你是<b>直接双击打开这个文件的</b>（地址栏以 <code>file://</code> 开头）。' +
+      '浏览器在 <code>file://</code> 下会拒绝加载 ES 模块，这是浏览器的同源策略，不是文件损坏。</p>' +
+      '<p>任选一种方式即可：</p>' +
+      '<ul>' +
+      '<li><b>起本地服务（推荐）</b>：在本目录执行 <code>npm start</code>（等价于 <code>node serve.mjs --open</code>），' +
+      '然后打开它提示的 <code>http://127.0.0.1:8123</code>。Windows 也可以直接双击 <code>start-server.cmd</code>。</li>' +
+      '<li><b>用单文件版</b>：打开同目录下的 <code>youtiao-standalone.html</code>，它把所有模块内联成了一个普通脚本，双击即可用。</li>' +
+      '<li>或者把它放到 GitHub Pages 上访问。</li>' +
+      '</ul>';
+    document.body.insertBefore(tip, document.body.firstChild);
+  }, 1500);
+</script>
+</body>
+</html>

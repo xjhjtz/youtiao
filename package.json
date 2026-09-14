@@ -1,0 +1,28 @@
+{
+  "name": "youtiao",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "油条 —— 基于 GitHub 的 Twikoo 头像管理系统。",
+  "keywords": [
+    "avatar",
+    "gravatar",
+    "weavatar",
+    "twikoo",
+    "jsdelivr",
+    "github",
+    "image-bed"
+  ],
+  "scripts": {
+    "start": "node serve.mjs --open",
+    "serve": "node serve.mjs",
+    "serve:lan": "node serve.mjs --lan --open",
+    "serve:python": "python -m http.server 8123",
+    "build": "node build/standalone.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

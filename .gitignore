@@ -1,0 +1,15 @@
+# 依赖与构建产物
+node_modules/
+dist/
+_site/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# 备份里会带令牌，千万别提交
+youtiao-backup-*.json
+youtiao-links-*.json
