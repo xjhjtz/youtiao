@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: 测试与发布
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
-      - name: 运行单元测试（有失败就不发布）
+      - name: 运行单元测试
         run: node --test
 
       - name: 准备静态产物
@@ -40,17 +40,31 @@ jobs:
           [ -d avatar ] && cp -r avatar _site/ || true
           touch _site/.nojekyll
 
+      # 默认不发布任何东西 —— 是否要开一个公开站点、开在哪个域名下，
+      # 由仓库主人自己决定。没开 Pages 时这里只是跳过，不会让 CI 变红。
+      - name: 检查 Pages 是否已启用
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=已跳过部署::这个仓库还没有开启 Pages。想发布的话：Settings → Pages → Source 选「GitHub Actions」，然后重新运行本工作流。"
+          fi
+
       - name: 配置 Pages
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
-        with:
-          # 仓库还没开 Pages 时自动开启（否则第一次部署会因为「找不到 Pages 站点」而失败）
-          enablement: true
 
       - name: 上传产物
+        if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - name: 部署
+        if: steps.pages.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
