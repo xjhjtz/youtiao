@@ -42,6 +42,9 @@ jobs:
 
       - name: 配置 Pages
         uses: actions/configure-pages@v5
+        with:
+          # 仓库还没开 Pages 时自动开启（否则第一次部署会因为「找不到 Pages 站点」而失败）
+          enablement: true
 
       - name: 上传产物
         uses: actions/upload-pages-artifact@v3
